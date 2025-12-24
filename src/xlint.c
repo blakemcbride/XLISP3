@@ -10,6 +10,11 @@
 /* macro to call a xlSUBR */
 #define callsubr(x,c)   (xlArgC = (c), (x)())
 
+/*
+ * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* globals */
 xlErrorTarget *xlerrtarget = NULL;  /* error target */
 xlValue *xlcatch = NULL;            /* catch frame pointer */
@@ -17,10 +22,12 @@ int xlTraceBytecodes = FALSE;       /* trace enable */
 xlEXPORT int xlArgC;                /* number of arguments remaining */
 xlEXPORT void (*xlNext)(void);      /* next function to call (xlApply or NULL) */
 
-/* external variables */
+/* external variables - only in legacy mode */
 extern xlValue s_package,s_stdin,s_stdout,xlUnboundObject;
 extern xlValue s_unassigned,xlDefaultObject,s_error;
 extern xlValue s_stackpointer;
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* error target (and bytecode dispatch target) */
 #define BCD_START       0       /* must be zero */
@@ -593,7 +600,9 @@ static void opLIT(void)
 /* opGREF - handler for opcode GREF */
 static void opGREF(void)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue s_package;
+#endif
     register xlValue tmp;
     xlValue key;
     tmp = xlGetElement(xlFun,*pc++);

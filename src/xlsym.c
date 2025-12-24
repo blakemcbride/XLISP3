@@ -6,11 +6,18 @@
 
 #include "xlisp.h"
 
+/*
+ * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* global variables */
 xlValue xlPackages,xlLispPackage,xlXLispPackage,xlKeywordPackage;
 
 /* external variables */
 extern xlValue xlPackages,s_package,k_internal,k_external,k_inherited;
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* forward declarations */
 static xlValue addtolist(xlValue list,xlValue val);

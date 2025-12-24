@@ -11,11 +11,13 @@
 #define TLEFT   1
 #define TRIGHT  2
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue xlEofObject,s_hexfmt;
 extern xlValue s_stdin,s_stdout,s_stderr,s_error;
 extern xlValue k_start,k_end,k_1start,k_1end,k_2start,k_2end,k_fromend;
 extern int xlPRBreadth,xlPRDepth;
+#endif
 
 /* forward declarations */
 static xlValue setit(int *pvar);
@@ -44,7 +46,9 @@ xlValue xsymstr(void)
 /* xstrsym - built-in function 'string->symbol' */
 xlValue xstrsym(void)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue s_package;
+#endif
     xlValue key;
     xlVal = xlGetArgString();
     xlLastArg();

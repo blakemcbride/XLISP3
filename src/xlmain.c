@@ -11,9 +11,14 @@
 #define BANNER  "\
 XLISP 3.3, September 6, 2002 Copyright (c) 1984-2002, by David Betz"
 
+/*
+ * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* global variables */
 int xlCmdLineArgC = 0;                  /* command line argument count */
-const char **xlCmdLineArgV = NULL;            /* array of command line arguments */
+const char **xlCmdLineArgV = NULL;      /* array of command line arguments */
 xlEXPORT int xlInitializedP = FALSE;    /* true if initialization is done */
 xlEXPORT FILE *xlTranscriptFP = NULL;   /* trace file pointer */
 
@@ -21,6 +26,8 @@ xlEXPORT FILE *xlTranscriptFP = NULL;   /* trace file pointer */
 extern xlValue s_package,xlUnboundObject,s_stderr,s_error,s_backtrace;
 extern xlFIXTYPE xlNSSize,xlVSSize;
 extern int xlTraceBytecodes;
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* local prototypes */
 static void fmterror(const char *tag,const char *fmt,va_list ap);
@@ -30,7 +37,18 @@ xlEXPORT int xlInit(xlCallbacks *callbacks,int argc,const char *argv[],const cha
 {
     xlErrorTarget target;
     int src,dst;
-    
+
+#ifdef XLISP_USE_CONTEXT
+    /* In threaded mode, create and set up the default context */
+    {
+        xlContext *ctx = xlCreateContext();
+        if (ctx == NULL)
+            return FALSE;
+        xlSetCurrentContext(ctx);
+        ctx->callbacks = callbacks;
+    }
+#endif
+
     /* store the callback structure pointer */
     xlSetCallbacks(callbacks);
 

@@ -9,8 +9,10 @@
 /* global variables */
 xlFIXTYPE xlfsize;
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue s_stdin,s_stdout,s_stderr,xlUnboundObject;
+#endif
 
 /* forward declarations */
 static int fstream_getc(xlValue fptr);

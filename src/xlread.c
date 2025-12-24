@@ -17,9 +17,11 @@
 #define RO_COMMENT      2
 #define RO_EOF          3
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue s_package,s_quote,s_function,s_quasiquote,s_unquote,s_unquotesplicing,s_dot;
 extern xlValue xlEofObject;
+#endif
 
 /* forward declarations */
 static int readone(xlValue fptr,xlValue *pval);
@@ -192,11 +194,9 @@ void xrmhash(void)
 /* xrmquote - read macro %RM-QUOTE */
 void xrmquote(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* return the result */
@@ -207,11 +207,9 @@ void xrmquote(void)
 /* xrmdquote - read macro %RM-DOUBLE-QUOTE */
 void xrmdquote(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* return the result */
@@ -222,11 +220,9 @@ void xrmdquote(void)
 /* xrmbquote - read macro %RM-BACKQUOTE */
 void xrmbquote(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* return the result */
@@ -237,11 +233,9 @@ void xrmbquote(void)
 /* xrmcomma - read macro %RM-COMMA */
 void xrmcomma(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* return the result */
@@ -252,11 +246,9 @@ void xrmcomma(void)
 /* xrmlparen - read macro %RM-LEFT-PAREN */
 void xrmlparen(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* return the result */
@@ -267,11 +259,9 @@ void xrmlparen(void)
 /* xrmrparen - read macro %RM-RIGHT-PAREN */
 void xrmrparen(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* illegal in this context */
@@ -281,11 +271,9 @@ void xrmrparen(void)
 /* xrmsemi - read macro %RM-SEMICOLON */
 void xrmsemi(void)
 {
-    xlValue mch;
-    
     /* parse the argument list */
     xlVal = xlGetInputPort();
-    mch = xlGetArgChar();
+    (void)xlGetArgChar();
     xlLastArg();
     
     /* skip over the comment */
@@ -407,7 +395,9 @@ static xlValue read_quote(xlValue fptr,xlValue sym)
 /* read_symbol - parse a symbol (or a number) */
 static xlValue read_symbol(xlValue fptr)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue xlKeywordPackage,k_external;
+#endif
     char buf[xlSTRMAX+1],*sname;
     xlValue package,val,key;
     
@@ -518,7 +508,7 @@ static xlValue read_string(xlValue fptr)
     }
 
     /* return the new string */
-    return xlTop() == xlNil ? xlPop(), xlMakeString(buf,len) : xlGetStrOutput(xlPop());
+    return xlTop() == xlNil ? (void)xlPop(), xlMakeString(buf,len) : xlGetStrOutput(xlPop());
 }
 
 /* read_special - parse an atom starting with '#' */
@@ -790,7 +780,9 @@ xlEXPORT xlValue xlCharType(int ch)
 /* tentry - get readtable entry for a character */
 static xlValue tentry(int ch)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue xlSymReadTable;
+#endif
     xlValue rtable = xlGetValue(xlSymReadTable);
     if (xlVectorP(rtable) && ch >= 0 && ch < xlGetSize(rtable))
         return xlGetElement(rtable,ch);

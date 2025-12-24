@@ -1,6 +1,22 @@
 # xlisp
 ## The API
 
+### Building
+
+Standard build:
+```bash
+make
+```
+
+Reentrant/thread-safe build:
+```bash
+make REENTRANT=1
+```
+
+The reentrant build enables thread-local interpreter contexts, allowing XLISP to be safely called from multiple threads.
+
+### Basic Usage
+
 Here is the basic form of a C program that uses `xlisp.dll`.
 
 ```cpp
@@ -29,6 +45,76 @@ void main(int argc,char *argv[])
     xlCallFunctionByName(NULL,0,"*TOPLEVEL*",0);
 }
 ```
+
+### Multi-threaded Usage
+
+When built with `REENTRANT=1`, each thread must create and initialize its own interpreter context. Contexts are completely independent - no Lisp data is shared between threads.
+
+```cpp
+#include "xlisp.h"
+#include "xlthread.h"
+
+void *thread_func(void *arg)
+{
+    xlCallbacks *callbacks;
+    xlContext *ctx;
+
+    /* create a new interpreter context for this thread */
+    ctx = xlCreateContext();
+    if (ctx == NULL)
+        return NULL;
+
+    /* get default callbacks and initialize the context */
+    callbacks = xlDefaultCallbacks(0, NULL);
+    if (xlInitContext(ctx, callbacks, 0, NULL, NULL) != 0) {
+        xlDestroyContext(ctx);
+        return NULL;
+    }
+
+    /* use the interpreter */
+    xlLoadFile("mycode.lsp");
+    xlCallFunctionByName(NULL, 0, "MY-FUNCTION", 0);
+
+    /* clean up when done */
+    xlDestroyContext(ctx);
+    return NULL;
+}
+```
+
+#### Context API Functions
+
+```cpp
+xlContext *xlCreateContext(void)
+```
+Allocates a new interpreter context. Returns NULL on failure.
+
+```cpp
+int xlInitContext(xlContext *ctx, xlCallbacks *callbacks,
+                  int argc, const char *argv[], const char *workspace)
+```
+Initializes a context for use. Returns 0 on success, -1 on failure.
+- `ctx` - context created by `xlCreateContext()`
+- `callbacks` - callback structure (use `xlDefaultCallbacks()`)
+- `argc`, `argv` - command line arguments (can be 0, NULL)
+- `workspace` - workspace image file to restore (or NULL)
+
+```cpp
+void xlSetCurrentContext(xlContext *ctx)
+```
+Sets the current thread's active context. Called automatically by `xlInitContext()`.
+
+```cpp
+void xlDestroyContext(xlContext *ctx)
+```
+Frees all memory associated with a context. Call when the thread is done with the interpreter.
+
+```cpp
+xlContext *xlGetCurrentContext(void)
+```
+Returns the current thread's active context.
+
+### Defining External Functions
+
 External functions should be declared as functions taking no arguments and returning an xlValue which is the result. Arguments should be fetched by using the routines below.
 
 For functions that take optional arguments, call the predicate `xlMoreArgsP()` to determine if more arguments are present before

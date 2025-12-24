@@ -499,6 +499,12 @@ struct xlVectorSegment {
     xlValue vs_data[1];         /* segment data */
 };
 
+/*
+ * When XLISP_USE_CONTEXT is defined, these are macros in xlcompat.h.
+ * Otherwise, they are extern declarations for traditional globals.
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* node space */
 extern xlFIXTYPE xlNSSize;              /* node segment size */
 extern xlNodeSegment *xlNSegments;      /* list of node segments */
@@ -520,6 +526,8 @@ extern xlFIXTYPE xlGCCalls;             /* number of calls to the garbage collec
 /* argument list */
 extern const char **xlCmdLineArgV;
 extern int xlCmdLineArgC;
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* subr definition structure */
 typedef struct {
@@ -622,7 +630,8 @@ typedef struct {
     void (*exit)(int sts);
 } xlCallbacks;
 
-/* external variables */
+/* external variables - wrapped for context mode */
+#ifndef XLISP_USE_CONTEXT
 xlEXPORT extern int xlInitializedP;     /* true if initialization is done */
 xlEXPORT extern FILE *xlTranscriptFP;   /* transcript file pointer */
 xlEXPORT extern xlValue *xlStkBase;     /* base of value stack */
@@ -650,6 +659,7 @@ xlEXPORT extern xlValue xlSymWSpace;
 xlEXPORT extern xlValue xlSymConst;
 xlEXPORT extern xlValue xlSymSEscape;
 xlEXPORT extern xlValue xlSymMEscape;
+#endif /* !XLISP_USE_CONTEXT */
 
 /* API status codes */
 #define xlsSuccess      0
@@ -1312,6 +1322,24 @@ void xlosEnter(void);
 
 /* setup default callbacks */
 xlEXPORT xlCallbacks *xlDefaultCallbacks(const char *programPath);
+
+/* ====================================================================
+ * Threading Support
+ *
+ * When XLISP_USE_CONTEXT is defined, all global variables are replaced
+ * with macros that access the current thread's context. This allows
+ * multiple interpreter instances in different threads.
+ *
+ * To enable threading:
+ *   #define XLISP_USE_CONTEXT
+ *   #include "xlisp.h"
+ *
+ * Or compile with -DXLISP_USE_CONTEXT
+ * ==================================================================== */
+#ifdef XLISP_USE_CONTEXT
+#include "xlcompat.h"
+#include "xlthread.h"
+#endif
 
 #endif
 

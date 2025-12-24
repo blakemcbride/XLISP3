@@ -6,16 +6,23 @@
 
 #include "xlisp.h"
 
+/*
+ * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* global variables */
 int xlPRBreadth = -1;
 int xlPRDepth = -1;
 
-/* local variables */
-static char buf[200];
-
 /* external variables */
 extern xlValue s_printcase,k_downcase;
 extern xlValue s_fixfmt,s_flofmt,xlUnboundObject;
+
+#endif /* !XLISP_USE_CONTEXT */
+
+/* local variables */
+static char buf[200];
 
 static void print(xlValue fptr,xlValue vptr,int escflag,int depth);
 static void putatm(xlValue fptr,const char *tag,xlValue val);
@@ -312,7 +319,9 @@ static void putqstring(xlValue fptr,xlValue str)
 /* putsymbol - output a symbol */
 static void putsymbol(xlValue fptr,xlValue sym)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue s_package,xlKeywordPackage,k_internal;
+#endif
     xlValue package,key;
     if ((package = xlGetPackage(sym)) == xlNil)
         xlPutStr(fptr,"#:");
@@ -430,7 +439,9 @@ static void putcharacter(xlValue fptr,int ch)
 /* putobject - output an object value */
 static void putobject(xlValue fptr,xlValue obj)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue s_print;
+#endif
     xlInternalCall(&obj,1,obj,2,s_print,fptr);
 }
 

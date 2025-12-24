@@ -1,53 +1,39 @@
-# xlisp
-## An object-oriented LISP
+# XLISP 3
 
-Version 3.0
+XLISP3 is a fork of David Betz's XLISP3.
 
-February 18, 2006
+The home for this fork is at <https://github.com/blakemcbride/XLISP3>
 
-## Building with CMake
-We've added the ability to build with CMake to simplify building XLisp on your
-system. The way that we expect this to work on Linux systems using `make` would
-be to first make a build directory. For this walkthrough we'll say that we
-start _in_ the xlisp directory:
+XLISP3 is better described as Scheme than Lisp since it more closely follows Scheme.
 
-```bash
-cd ..
-mkdir build
-cd build
-ccmake ../xlisp
-```
-So, now we have made a build directory outside of xlisp, so that the build
-products don't get strewn all over our pristine source. The `ccmake` command is
-a curses front end to CMake that I like. From there you can pick the type of
-build, then type "g" for generate. This drops you out in a shell prompt, where
-it has made makefiles for you (on other platforms, you may have other types of
-build files generated). After that you can:
+It has some really nice features as follows:
 
-```bash
-make
-# and then, either:
-make install
-# or
-make package
-```
+1. It has a byte-code compiler (to FASL files) so code runs reasonably fast.
+2. It can load Lisp source files or compiled FASL files.
+3. It has an object system with classes, methods, inheritance, and `super` calls.
+4. The macro system is traditional Lisp-style (not Scheme's hygienic macros).
+5. It can be used as an extension language embedded in C programs.
+6. It can save/load workspace images.
+7. It correctly handles tail recursion (proper tail call optimization).
+8. It has a Common Lisp-style package system.
+9. It supports multiple return values.
+10. It has first-class continuations (call/cc).
 
-With the CMake file we have in there, it also has a "package" target, which
-will most likely result in a gzipped tar file of the build products. It is also
-possible to alter the `CMakeLists.txt` file to generate other package types,
-such as `*.rpm`, `*.deb`, etc.
+## To all of this, I have added:
 
-#### David Michael Betz
+A. When used as an extension language, it is now reentrant and can handle multiple simultaneous threads.
 
-18 Garrison Drive
-Bedford, US, NH 03110
+To this, I would like to add native thread support at some time.
 
-(603) 472-2389 (home)
+## Building
 
-#### Copyright (c) 1984-2006, by David Michael Betz
+    make                 # standard build
+    make REENTRANT=1     # thread-safe build
+    make clean           # remove build artifacts
 
-All Rights Reserved
+## The original README file is located at README2.md
 
-See the included file LICENSE for the full license.
+Blake McBride
+blake@mcbridemail.com
 
-Updated 11/8/24 to test 2FA.
+

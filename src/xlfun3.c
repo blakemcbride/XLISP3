@@ -6,8 +6,10 @@
 
 #include "xlisp.h"
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue s_package;
+#endif
 
 /* forward declarations */
 static const char *showstring(const char *str,int bch);
@@ -298,7 +300,9 @@ xlCContinuation load_cc = { load_continuation,load_unwind,4,"Load:package,env,fi
 /* do_loadloop - read the next expression and setup to evaluate it */
 static void do_loadloop(xlValue print,xlValue oldpack)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue s_eval;
+#endif
     xlValue expr;
     
     /* try to read the next expression from the file */

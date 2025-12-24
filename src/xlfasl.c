@@ -6,8 +6,10 @@
 
 #include "xlisp.h"
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue xlEofObject;
+#endif
 
 /* prototypes */
 static int faslwritecode(xlValue fptr,xlValue code);

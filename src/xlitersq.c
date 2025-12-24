@@ -34,8 +34,10 @@ typedef xlValue (*MACTION)(xlValue val,xlValue *d);
 #define IS_FETCH        1
 #define IS_UPDATE       2
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue xlVal,k_key,k_count,k_start,k_end;
+#endif
 
 static void iterseq1(xlValue ivalue,xlValue tresult,ACTION action);
 static void iterlist1(xlValue ivalue,xlValue tresult,ACTION action);

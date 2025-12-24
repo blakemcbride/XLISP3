@@ -6,9 +6,11 @@
 
 #include "xlisp.h"
 
+#ifndef XLISP_USE_CONTEXT
 /* global variables */
 extern xlValue xlLispPackage,xlLispPackage,xlKeywordPackage,xlLispPackage;
 extern xlValue xlPackages,xlEofObject,xlDefaultObject;
+#endif
 
 /* local variables */
 static xlOFFTYPE off,foff;

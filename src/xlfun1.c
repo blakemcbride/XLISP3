@@ -10,10 +10,12 @@
 static char gsprefix[xlSTRMAX+1] = { 'G',0 };   /* gensym prefix string */
 static xlFIXTYPE gsnumber = 1;                  /* gensym number */
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue xlEnv,xlVal,xlDefaultObject;
 extern xlValue xlUnboundObject,s_package,s_eql,k_uses,k_test,k_testnot,k_key;
 extern xlValue xlPackages,xlLispPackage,xlLispPackage,xlLispPackage;
+#endif
 
 /* forward declarations */
 static xlValue cxr(const char *adstr);

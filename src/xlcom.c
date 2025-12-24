@@ -26,12 +26,14 @@
 #define slambdakey(x)   ((x) == slk_optional \
                       || (x) == slk_rest)
 
+#ifndef XLISP_USE_CONTEXT
 /* global variables */
 xlEXPORT int xlDebugModeP = FALSE;
 
 /* external variables */
 extern xlValue lk_optional,lk_rest,lk_key,lk_allow_other_keys,lk_aux;
 extern xlValue slk_optional,slk_rest;
+#endif
 
 /* local variables */
 static xlValue info;            /* compiler info */
@@ -393,6 +395,7 @@ static void do_method(xlValue form,int cont)
     selector = xlCar(xlCdr(form));
     fargs = xlCar(xlCdr(xlCdr(form)));
     body = xlCdr(xlCdr(xlCdr(form)));
+    (void)object; (void)selector; (void)fargs; (void)body;
 
     cd_fundefinition(xlCar(form),xlCar(xlCdr(form)),xlCdr(xlCdr(form)));
 
@@ -717,7 +720,9 @@ static void add_extra_arguments(xlValue fargs)
 /* parse_optional_arguments - parse the &optional arguments */
 static void parse_optional_arguments(xlValue key,xlValue *pfargs,int base)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue xlDefaultObject;
+#endif
     int patch,patch2,chain,off,oargc=0;
     xlValue fargs,arg,def,svar;
 
@@ -871,7 +876,9 @@ static void parse_key_arguments(xlValue *pfargs,int base)
 /* parse_key_argument - parse a single &key argument */
 static void parse_key_argument(xlValue form,xlValue *parg,xlValue *pkey,xlValue *pdef,xlValue *psvar)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlValue xlKeywordPackage;
+#endif
     xlValue key;
     *pkey = *pdef = *psvar = xlNil;
     if (xlConsP(form)) {

@@ -10,8 +10,10 @@
 static void (*idleHandler)(void *data) = NULL;
 static void *idleData;
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue *xlcatch,s_eval,s_load,xlUnboundObject,xlEofObject;
+#endif
 
 /* prototypes */
 static const char *PrintToString(xlValue expr,char *buf,xlFIXTYPE len,int escFlag);

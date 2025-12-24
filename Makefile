@@ -45,7 +45,12 @@ endif
 ECHO=echo
 MKDIR=mkdir
 
-CFLAGS=-Wall -DUNIX -I$(HDRDIR)
+CFLAGS=-Wall -DUNIX -I$(HDRDIR) -fPIC
+
+# Reentrant/threading support: make REENTRANT=1
+ifdef REENTRANT
+  CFLAGS += -DXLISP_USE_CONTEXT
+endif
 
 INC=$(HDRDIR)/xlisp.h
 
@@ -67,6 +72,7 @@ clean:
 	rm -f -r $(OBJDIR)
 	rm -f -r $(LIBDIR)
 	rm -f -r $(BINDIR)
+	rm -f -r build
 
 #########
 # XLISP #
@@ -99,6 +105,7 @@ $(LIBOBJDIR)/xlansi.o \
 $(LIBOBJDIR)/xlapi.o \
 $(LIBOBJDIR)/xlcobj.o \
 $(LIBOBJDIR)/xlcom.o \
+$(LIBOBJDIR)/xlcontext.o \
 $(LIBOBJDIR)/xldbg.o \
 $(LIBOBJDIR)/xldmem.o \
 $(LIBOBJDIR)/xlfasl.o \

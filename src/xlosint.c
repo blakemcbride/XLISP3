@@ -6,32 +6,52 @@
 
 #include "xlisp.h"
 
-/* global variables */
+#ifndef XLISP_USE_CONTEXT
+/* global variables - only in legacy mode */
 static xlCallbacks *callbacks = NULL;
+#endif
 
 /* xlSetCallbacks - initialize xlisp */
 void xlSetCallbacks(xlCallbacks *cb)
 {
+#ifdef XLISP_USE_CONTEXT
+    /* In context mode, store in the current context */
+    xlCtx()->callbacks = cb;
+#else
     /* save the pointer to the callbacks */
     callbacks = cb;
+#endif
+}
+
+/* Helper to get callbacks pointer */
+static xlCallbacks *getCallbacks(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    return xlCtx()->callbacks;
+#else
+    return callbacks;
+#endif
 }
 
 /* xlosLoadPath - return the load path */
 xlEXPORT const char *xlosLoadPath(void)
 {
-    return callbacks->loadPath ? (*callbacks->loadPath)() : NULL;
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->loadPath ? (*cb->loadPath)() : NULL;
 }
 
 /* xlosParsePath - return the load path */
 xlEXPORT const char *xlosParsePath(const char **pp)
 {
-    return callbacks->parsePath ? (*callbacks->parsePath)(pp) : NULL;
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->parsePath ? (*cb->parsePath)(pp) : NULL;
 }
 
 /* xlosDirectorySeparator - return the directory separator character */
 xlEXPORT int xlosDirectorySeparator(void)
 {
-    return callbacks->directorySeparator ? (*callbacks->directorySeparator)() : '\\';
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->directorySeparator ? (*cb->directorySeparator)() : '\\';
 }
 
 /* xlosEnter - enter o/s specific functions */
@@ -60,29 +80,33 @@ xlEXPORT xlValue (*xlosFindSubr(const char *name))(void)
             return (xlValue (*)(void))xsdp->subr;
 
     /* call the user handler */
-    return callbacks->findSubr ? (*callbacks->findSubr)(name) : NULL;
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->findSubr ? (*cb->findSubr)(name) : NULL;
 }
 
 /* xlosError - print an error message */
 xlEXPORT void xlosError(const char *msg)
 {
-    if (callbacks->error)
-        (*callbacks->error)(msg);
+    xlCallbacks *cb = getCallbacks();
+    if (cb && cb->error)
+        (*cb->error)(msg);
 }
 
 /* xlosFileModTime - return the modification time of a file */
 xlEXPORT int xlosFileModTime(const char *fname,xlFIXTYPE *pModTime)
-{                        
-    return callbacks->fileModTime ? (*callbacks->fileModTime)(fname,pModTime) : FALSE;
+{
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->fileModTime ? (*cb->fileModTime)(fname,pModTime) : FALSE;
 }
 
 /* xlosConsoleGetC - get a character from the terminal */
 xlEXPORT int xlosConsoleGetC(void)
 {
+    xlCallbacks *cb = getCallbacks();
     int ch;
-    
+
     /* get the next character */
-    ch = callbacks->consoleGetC ? (*callbacks->consoleGetC)() : EOF;
+    ch = cb && cb->consoleGetC ? (*cb->consoleGetC)() : EOF;
 
     /* output the character to the transcript file */
     if (xlTranscriptFP && ch != EOF)
@@ -95,12 +119,14 @@ xlEXPORT int xlosConsoleGetC(void)
 /* xlosConsolePutC - put a character to the terminal */
 xlEXPORT void xlosConsolePutC(int ch)
 {
+    xlCallbacks *cb = getCallbacks();
+
     /* check for control characters */
     xlosCheck();
 
     /* output the character */
-    if (callbacks->consolePutC)
-        (*callbacks->consolePutC)(ch);
+    if (cb && cb->consolePutC)
+        (*cb->consolePutC)(ch);
 
     /* output the character to the transcript file */
     if (xlTranscriptFP)
@@ -117,32 +143,37 @@ xlEXPORT void xlosConsolePutS(const char *str)
 /* xlosConsoleAtBOLP - are we at the beginning of a line? */
 xlEXPORT int xlosConsoleAtBOLP(void)
 {
-    return callbacks->consoleAtBOLP ? (*callbacks->consoleAtBOLP)() : FALSE;
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->consoleAtBOLP ? (*cb->consoleAtBOLP)() : FALSE;
 }
 
 /* xlosConsoleFlush - flush the terminal input buffer */
 xlEXPORT void xlosConsoleFlush(void)
 {
-    if (callbacks->consoleFlushInput)
-        (*callbacks->consoleFlushInput)();
+    xlCallbacks *cb = getCallbacks();
+    if (cb && cb->consoleFlushInput)
+        (*cb->consoleFlushInput)();
 }
 
 /* xlosConsoleCheck - check for control characters during execution */
 xlEXPORT int xlosConsoleCheck(void)
 {
-    return callbacks->consoleCheck ? (*callbacks->consoleCheck)() : 0;
+    xlCallbacks *cb = getCallbacks();
+    return cb && cb->consoleCheck ? (*cb->consoleCheck)() : 0;
 }
 
 /* xlosFlushOutput - flush the output buffer */
 xlEXPORT void xlosFlushOutput(void)
 {
-    if (callbacks->consoleFlushOutput)
-        (*callbacks->consoleFlushOutput)();
+    xlCallbacks *cb = getCallbacks();
+    if (cb && cb->consoleFlushOutput)
+        (*cb->consoleFlushOutput)();
 }
 
 /* xlosExit - exit from XLISP */
 xlEXPORT void xlosExit(int sts)
 {
-    if (callbacks->exit)
-        (*callbacks->exit)(sts);
+    xlCallbacks *cb = getCallbacks();
+    if (cb && cb->exit)
+        (*cb->exit)(sts);
 }

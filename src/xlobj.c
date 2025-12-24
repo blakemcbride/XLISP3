@@ -6,12 +6,14 @@
 
 #include "xlisp.h"
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue s_stdout;
 
 /* local variables */
 static xlValue k_initialize;
 static xlValue c_class,c_object;
+#endif
 
 /* local prototypes */
 static int FindIVarOffset(xlValue cls,xlValue sym,int *pOffset);

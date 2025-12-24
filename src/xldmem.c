@@ -8,6 +8,17 @@
 
 #undef DEBUG_GC
 
+/*
+ * When XLISP_USE_CONTEXT is defined, all these "globals" become macros
+ * that access xlCtx()->field. The actual storage is in the xlContext
+ * structure, managed by xlcontext.c.
+ *
+ * When not defined, we use traditional global variables for backward
+ * compatibility with single-threaded use.
+ */
+
+#ifndef XLISP_USE_CONTEXT
+
 /* virtual machine registers */
 xlEXPORT xlValue xlFun;         /* current function */
 xlEXPORT xlValue xlEnv;         /* current environment */
@@ -48,11 +59,13 @@ int xlVSCount;                  /* number of vector segments */
 xlValue *xlVFree;               /* next free location in vector space */
 xlValue *xlVTop;                /* top of vector space */
 
-/* external variables */
+/* external variables - only needed in legacy mode */
 extern xlValue xlPackages;      /* list of packages */
 extern xlValue xlUnboundObject; /* unbound indicator */
 extern xlValue xlDefaultObject; /* default object */
 extern xlValue xlEofObject;     /* eof object */
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* forward declarations */
 static xlValue allocnode(int);

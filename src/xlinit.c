@@ -13,6 +13,11 @@
 /* shorthand for xlFIRSTENV */
 #define FE      xlFIRSTENV
 
+/*
+ * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().
+ */
+#ifndef XLISP_USE_CONTEXT
+
 /* global variables */
 xlEXPORT xlValue xlSymConst,xlSymMEscape,xlSymSEscape,xlSymWSpace;
 xlEXPORT xlValue xlSymTMacro,xlSymNMacro,xlSymReadTable;
@@ -28,6 +33,8 @@ xlValue s_fixfmt,s_hexfmt,s_flofmt,s_freeptr,s_backtrace;
 
 /* external variables */
 extern xlValue xlLispPackage;
+
+#endif /* !XLISP_USE_CONTEXT */
 
 /* local functions */
 static xlValue getloadpath(void);

@@ -11,8 +11,10 @@
 #endif
 #include "xlisp.h"
 
+#ifndef XLISP_USE_CONTEXT
 /* external variables */
 extern xlValue s_unbound;
+#endif
 
 /* local variables */
 #define LBSIZE 100

@@ -104,7 +104,9 @@ xlEXPORT void xlosCheck(void)
 /* xlosInfo - show information on control-t */
 xlEXPORT void xlosInfo(void)
 {
+#ifndef XLISP_USE_CONTEXT
     extern xlFIXTYPE xlNFree,xlGCCalls,xlTotal;
+#endif
     char buf[80];
     sprintf(buf,"\n[ Free: %ld, GC calls: %ld, Total: %ld ]",xlNFree,xlGCCalls,xlTotal);
     xlErrPutStr(buf);
