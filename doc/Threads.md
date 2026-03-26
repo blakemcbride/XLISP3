@@ -143,21 +143,35 @@ defaults. To customize sizes you would need to modify the constants in
 ### Thread Creation
 
 ```lisp
-(THREAD-CREATE expr-string [init-file])
+(THREAD-CREATE expr [init-file])
 ```
 
-Creates a new native OS thread that evaluates *expr-string* (a string
-containing a Lisp expression) in its own interpreter context.
+Creates a new native OS thread that evaluates *expr* in its own
+interpreter context.  *expr* can be:
+
+- A **string** containing a Lisp expression, or
+- A **list** (quoted S-expression), which is automatically serialized
+  to a string.
+
+Using a list is more natural and avoids escaped quotes inside strings.
 
 - *init-file*: optional string naming an initialization file to load
   before evaluating the expression. Default is `"xlisp.lsp"`. Pass `#f`
   to skip loading any init file.
 - Returns a thread handle (foreign pointer).
 
-**Important:** `THREAD-CREATE` evaluates only the **first** expression
-in the string. To execute multiple statements, wrap them in `(begin ...)`:
+**Important:** `THREAD-CREATE` evaluates only the **first** expression.
+To execute multiple statements, wrap them in `(begin ...)`:
 
 ```lisp
+;; Using a list (preferred)
+(define h (thread-create
+  '(begin
+     (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
+     (fib 30))
+  #f))
+
+;; Using a string (still supported)
 (define h (thread-create
   "(begin
      (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))

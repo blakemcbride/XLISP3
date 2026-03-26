@@ -121,17 +121,35 @@ static void *threadWorker(void *arg)
 #endif /* XLISP_USE_CONTEXT */
 
 /* xthreadcreate - built-in function 'thread-create' */
-/* (thread-create expr-string [init-file]) => thread-handle */
+/* (thread-create expr [init-file]) => thread-handle */
+/* expr can be a string or a list (which is serialized to a string) */
 xlValue xthreadcreate(void)
 {
 #ifdef XLISP_USE_CONTEXT
-    xlValue strval, initval;
+    xlValue exprval, initval;
     const char *str, *initStr;
     xlThreadInfo *info;
     xlValue handle;
 
-    /* get the expression string argument */
-    strval = xlGetArgString();
+    /* get the expression argument (string or list) */
+    exprval = xlGetArg();
+
+    /* if it's a list, serialize it to a string via write */
+    if (xlConsP(exprval)) {
+        xlValue stream, strobj;
+        xlCheck(2);
+        xlPush(exprval);
+        stream = xlNewUStream();
+        xlPush(stream);
+        xlWrite(exprval, stream);
+        strobj = xlGetStrOutput(stream);
+        xlDrop(2);
+        exprval = strobj;
+    }
+    else if (!xlStringP(exprval)) {
+        xlBadType(exprval);
+        return xlNil; /* not reached */
+    }
 
     /* get optional init file argument (default: "xlisp.lsp") */
     if (xlMoreArgsP()) {
@@ -151,7 +169,7 @@ xlValue xthreadcreate(void)
 
     xlLastArg();
 
-    str = xlGetString(strval);
+    str = xlGetString(exprval);
 
     /* allocate thread info */
     info = (xlThreadInfo *)malloc(sizeof(xlThreadInfo));
@@ -210,7 +228,7 @@ xlValue xthreadcreate(void)
 
     return handle;
 #else
-    xlGetArgString();
+    xlGetArg();  /* accept string or list */
     if (xlMoreArgsP()) xlGetArg();
     xlLastArg();
     xlFmtError("thread-create: requires threaded build (THREADS=1)");

@@ -2392,23 +2392,30 @@ object. The remaining elements are the object's instance variable values.
 XLISP supports native thread creation when built in reentrant mode
 (`make THREADS=1`).  Each spawned thread gets its own independent
 interpreter context -- it does not share any Lisp-level state with the
-calling thread.  The thread evaluates a string expression in a fresh
+calling thread.  The thread evaluates an expression in a fresh
 environment.
 
 If the system was not built with `THREADS=1`, calling these functions
 signals an error.
 
-**Important:** `THREAD-CREATE` evaluates only the *first* expression in
-the string.  To execute multiple statements, wrap them in `(begin ...)`.
+**Important:** `THREAD-CREATE` evaluates only the *first* expression.
+To execute multiple statements, wrap them in `(begin ...)`.
 
 ## THREAD-CREATE
 
 ```lisp
-(THREAD-CREATE expr-string [init-file])
+(THREAD-CREATE expr [init-file])
 ```
 
-Creates a new native thread that evaluates *expr-string* (a string
-containing a Lisp expression) in its own interpreter context.
+Creates a new native thread that evaluates *expr* in its own interpreter
+context.  *expr* can be:
+
+- A **string** containing a Lisp expression, or
+- A **list** (quoted S-expression), which is automatically serialized to
+  a string.
+
+Using a list avoids awkward string escaping and allows normal editor
+support (syntax highlighting, indentation).
 
 *init-file* is an optional string naming an initialization file to load
 before evaluating the expression.  The default is `"xlisp.lsp"`.  Pass
@@ -2417,19 +2424,19 @@ before evaluating the expression.  The default is `"xlisp.lsp"`.  Pass
 Returns a thread handle (a foreign-pointer object) that can be passed to
 `THREAD-JOIN`.
 
-Example:
+Example with a list:
 ```lisp
 ;; Spawn a thread that computes fib(30)
 (define h (thread-create
-  "(begin
+  '(begin
      (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
-     (fib 30))"))
+     (fib 30))))
 
 ;; Wait for it to finish
 (thread-join h)   ; => #t
 ```
 
-Example with no init file (faster startup):
+Example with a string (original form, still supported):
 ```lisp
 (define h (thread-create "(+ 1 2)" #f))
 (thread-join h)   ; => #t
