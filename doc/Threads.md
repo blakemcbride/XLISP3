@@ -78,6 +78,66 @@ The bytecode `optab[256]` dispatch table is shared and immutable. It is
 initialized once (protected by an `optabInitialized` flag) and read-only
 thereafter, making it safe for concurrent access.
 
+### Per-Thread Garbage Collection and Memory
+
+Each thread has its own heap (node segments and vector segments), its own
+free lists, and its own garbage collector. The GC runs synchronously
+within the thread — it is triggered inline when an allocation cannot be
+satisfied, and there is no separate GC thread. Because heaps are not
+shared, one thread's GC never touches another thread's memory, and there
+are no stop-the-world pauses across threads.
+
+#### GC Algorithm
+
+The collector in `src/xldmem.c` uses a three-phase **mark-sweep-compact**
+algorithm:
+
+1. **Mark** — Starting from roots (VM registers `xlFun`, `xlEnv`, `xlVal`;
+   the value and control stacks; the package list; and protected
+   pointers), the collector walks all reachable objects. It uses a
+   **pointer-reversal traversal** (Deutsch-Schorr-Waite algorithm) that
+   flips car/cdr pointers as it descends, avoiding recursion and needing
+   no auxiliary stack. Vector-like nodes (symbols, vectors, code objects,
+   etc.) are marked by iterating their elements. Continuations receive
+   special handling — their embedded value/control stacks are marked
+   separately.
+
+2. **Compact** — Live vectors are slid down within each vector segment to
+   eliminate gaps left by dead vectors, and each vector node's data
+   pointer is updated to its new location. Only vector space is
+   compacted; node space is not.
+
+3. **Sweep** — Every node in every segment is visited. Unmarked nodes are
+   returned to the free list. Marked nodes have their mark bit cleared.
+   Certain types receive special cleanup: file streams are closed, foreign
+   pointers call their registered `free` callback, and subr name strings
+   are freed.
+
+#### Default Memory Sizes
+
+All threads (including the main thread) use the same hardcoded defaults,
+defined in `include/xlisp.h`:
+
+| Constant | Default | Purpose |
+|----------|---------|---------|
+| `xlSTACKSIZE` | 65,536 | Value/control stack (in `xlValue` slots) |
+| `xlNSSIZE` | 20,000 | Nodes per node segment |
+| `xlVSSIZE` | 200,000 | `xlValue` slots per vector segment |
+
+These are not hard caps — they are the size of **one segment**. Memory
+grows on demand: when the GC runs and there still is not enough free
+space, `findmemory()` allocates additional segments via `xlNExpand()` and
+`xlVExpand()`. There is no upper bound other than what `malloc` can
+provide.
+
+#### No Per-Thread Size Configuration
+
+There is currently no way to configure memory sizes on a per-thread
+basis. The `thread-create` function does not accept sizing parameters,
+and `xlCreateContext()` always sets `nsSize` and `vsSize` to the compiled
+defaults. To customize sizes you would need to modify the constants in
+`include/xlisp.h` and rebuild, which affects all threads equally.
+
 ## Lisp-Level Threading API
 
 ### Thread Creation
