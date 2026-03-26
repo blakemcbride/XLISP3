@@ -5,6 +5,9 @@
 */
 
 #include "xlisp.h"
+#ifdef XLISP_USE_CONTEXT
+#include "xlshared.h"
+#endif
 
 /* normal functions */
 static xlSubrDef subrtab[] = {
@@ -425,6 +428,12 @@ static xlSubrDef subrtab[] = {
 {       "CHANNEL-LOOKUP",                   xchannellookup              },
 {       "CHANNEL-OPEN?",                    xchannelopenp               },
 {       "CHANNEL?",                         xchannelp                   },
+
+        /* shared code functions */
+#ifdef XLISP_USE_CONTEXT
+{       "SHARE-FUNCTION",                   xsharefunction              },
+{       "SHARED-CODE?",                     xsharedcodep                },
+#endif
 
 {0,0} /* end of table marker */
 };

@@ -276,6 +276,34 @@ xlEXPORT xlValue xlNewString(xlFIXTYPE size)
     return val;
 }
 
+/* xlMakeExternalString - create a string node backed by external data.
+ * The data pointer must remain valid for the lifetime of the process.
+ * The GC will not attempt to move or free the external data.
+ */
+xlEXPORT xlValue xlMakeExternalString(const unsigned char *data,xlFIXTYPE len)
+{
+    xlValue val;
+
+    /* get a free node */
+    if ((val = xlFNodes) == xlNil) {
+        findmemory();
+        if ((val = xlFNodes) == xlNil)
+            xlFmtAbort("insufficient node space");
+    }
+
+    /* unlink the node from the free list */
+    xlFNodes = xlCdr(xlFNodes);
+    --xlNFree;
+
+    /* initialize as a string node with external data */
+    val->type = xlSTRING;
+    val->flags = xlSHARED;
+    val->value.vector.size = len;
+    val->value.vector.data = (xlValue *)data;
+
+    return val;
+}
+
 /* xlNewPackage - create a new package */
 xlEXPORT xlValue xlNewPackage(const char *name)
 {

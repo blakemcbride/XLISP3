@@ -490,6 +490,61 @@ xlDestroyContext(ctx1);
 xlDestroyContext(ctx2);
 ```
 
+## Shared Bytecode Pool
+
+When threads load the same library code independently, each thread pays
+the cost of parsing, compiling, and storing its own copy.  The **shared
+bytecode pool** eliminates this overhead by letting the main thread
+publish compiled functions into process-wide shared memory that all
+subsequent threads can use automatically.
+
+### How It Works
+
+1. The main thread defines and compiles functions normally.
+2. `(share-function 'name)` serializes the closure's code object
+   (bytecodes, literals, nested code) into a shared template stored in
+   `malloc`'d memory outside any thread's GC heap.
+3. When `thread-create` spawns a new thread, `xlLinkSharedCode()` is
+   called automatically after context initialization.  It instantiates
+   each shared template into the new thread's local heap -- creating
+   lightweight code object wrappers that point to the shared bytecode
+   data and resolve symbols against the thread's own package system.
+
+The raw bytecode bytes (the bulk of compiled code) are shared read-only.
+Each thread gets its own small code object nodes and local symbol
+references, so the GC in each thread operates independently and
+thread-safety is preserved.
+
+### API
+
+```lisp
+(SHARE-FUNCTION symbol)   ; publish a closure to the shared pool => #t
+(SHARED-CODE?)            ; #t if any code has been shared, #f otherwise
+```
+
+### Usage Example
+
+```lisp
+;; Main thread: define and share utility functions
+(define (add1 n) (+ n 1))
+(define (double n) (* 2 n))
+(share-function 'add1)
+(share-function 'double)
+
+;; Child threads automatically have add1 and double available:
+(define h (thread-create "(number->string (add1 (double 20)))" #f))
+(thread-join h)   ; => #t
+```
+
+**Notes:**
+- Call `share-function` *before* creating threads that need the code.
+- Only closures (compiled functions) can be shared.
+- Shared bytecodes persist for the lifetime of the process.
+- The function's code is shared, not its runtime value bindings -- each
+  thread gets independent global variable bindings.
+
+See `doc/xlisp.md` section 53 for the complete API reference.
+
 ## High-Level Utilities
 
 The file `threads.lsp` provides convenient abstractions built on the
@@ -561,6 +616,8 @@ See `doc/xlisp.md` section 52 for the complete API reference.
 | `src/xlcontext.c` | Context creation, destruction, initialization |
 | `src/xlnthread.c` | `thread-create`, `thread-join`, `thread?` |
 | `src/xlsync.c` | Mutexes, condition variables, channels, named registry |
+| `include/xlshared.h` | Shared bytecode pool data structures and API declarations |
+| `src/xlshared.c` | Shared bytecode pool: publish, instantiate, link |
 | `threads.lsp` | High-level utilities (with-mutex, future/await, pcall, thread-pool, pmap) |
 
 ## Limitations
@@ -572,7 +629,9 @@ See `doc/xlisp.md` section 52 for the complete API reference.
    strings (used by `thread-create`, the named registry, and channels).
 
 3. **Memory overhead.** Each context has a full interpreter instance.
-   Memory scales linearly with context count.
+   Memory scales linearly with context count.  The shared bytecode pool
+   mitigates this for compiled code: shared functions store bytecodes
+   once in process-wide memory rather than duplicating them per thread.
 
 4. **Initialization serialization.** Context initialization uses OS
    callbacks with static buffers that are not thread-safe. A global mutex

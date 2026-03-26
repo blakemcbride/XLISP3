@@ -210,6 +210,7 @@ typedef unsigned long   xlUFIXTYPE;
 /* node flags */
 #define xlMARK          1
 #define xlLEFT          2
+#define xlSHARED        4       /* vector data is externally managed (shared pool) */
 
 /* port flags */
 #define xlpfINPUT       0x0001
@@ -715,6 +716,7 @@ int xlDecodeInstruction(xlValue fptr,xlValue code,xlFIXTYPE lc,xlValue env);
 xlEXPORT xlValue xlCons(xlValue x,xlValue y);
 xlEXPORT xlValue xlNewFrame(int type,xlValue parent,xlFIXTYPE size);
 xlEXPORT xlValue xlMakeString(const char *str,xlFIXTYPE len);
+xlEXPORT xlValue xlMakeExternalString(const unsigned char *data,xlFIXTYPE len);
 xlEXPORT xlValue xlMakeCString(const char *str);
 xlEXPORT xlValue xlCopyString(xlValue str);
 xlEXPORT xlValue xlMakeFileStream(FILE *fp,short flags);

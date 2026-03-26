@@ -25,7 +25,8 @@ It has some really nice features as follows:
 - B. Native thread creation and joining from Lisp (`thread-create`, `thread-join`, `thread?`).
 - C. Synchronization primitives: mutexes, condition variables, and message channels with cross-thread sharing via named registries.
 - D. High-level threading utilities: `with-mutex`, `future`/`await`, `pcall`, thread pools, and `pmap` (`threads.lsp`).
-- E. Updated version to 10.0.0.
+- E. Shared bytecode pool: publish compiled functions once and have them automatically available in all threads, avoiding redundant compilation and reducing per-thread memory usage (`share-function`, `shared-code?`).
+- F. Updated version to 10.0.0.
 
 ## Building
 

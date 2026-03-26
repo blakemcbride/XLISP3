@@ -20,6 +20,7 @@ set(xlisp_sources
     xlmain.c
     xlmath.c
     xlnthread.c
+    xlshared.c
     xlsync.c
     xlobj.c
     xlosint.c
@@ -29,7 +30,8 @@ set(xlisp_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlisp.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlcontext.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlcompat.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlthread.h")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlthread.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/xlshared.h")
 
 if(${CMAKE_SYSTEM} STREQUAL Windows)
     list(APPEND xlisp_sources msstuff.c)

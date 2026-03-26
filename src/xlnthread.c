@@ -5,6 +5,9 @@
 */
 
 #include "xlisp.h"
+#ifdef XLISP_USE_CONTEXT
+#include "xlshared.h"
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -101,6 +104,10 @@ static void *threadWorker(void *arg)
         xlLoadFile(info->initFile);
 
     INIT_UNLOCK();
+
+    /* link shared code into this thread's context */
+    if (xlHasSharedCode())
+        xlLinkSharedCode();
 
     /* evaluate the expression */
     if (xlEvaluateCString(&result, 1, info->expr) >= 0)

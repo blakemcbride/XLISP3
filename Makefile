@@ -124,6 +124,7 @@ $(LIBOBJDIR)/xlmain.o \
 $(LIBOBJDIR)/xlitersq.o \
 $(LIBOBJDIR)/xlmath.o \
 $(LIBOBJDIR)/xlnthread.o \
+$(LIBOBJDIR)/xlshared.o \
 $(LIBOBJDIR)/xlsync.o \
 $(LIBOBJDIR)/xlobj.o \
 $(LIBOBJDIR)/xlosint.o \

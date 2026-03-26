@@ -73,6 +73,7 @@ full license.
 - [50. Synchronization Primitives](#50-synchronization-primitives)
 - [51. Message Channels](#51-message-channels)
 - [52. High-Level Threading Utilities](#52-high-level-threading-utilities)
+- [53. Shared Code Functions](#53-shared-code-functions)
 
 
 
@@ -2992,4 +2993,62 @@ is spawned per element.
 (pmap "(number->string (* 3 ~a))" '("4" "5" "6") pool)
 ;; => ("12" "15" "18")
 (thread-pool-destroy pool)
+```
+
+# 53. Shared Code Functions
+
+When using threads, each thread gets its own independent interpreter
+context with its own heap, symbols, and compiled code.  Normally this
+means every thread must load and compile its own copy of any shared
+library code, which is slow and wastes memory.
+
+The **shared bytecode pool** allows the main thread to publish compiled
+functions into a process-wide pool.  When a new thread is created with
+`THREAD-CREATE`, the shared code is automatically instantiated into
+the thread's local context -- each thread gets its own lightweight
+wrapper objects but the heavy bytecode data is shared read-only across
+all threads.
+
+These functions require a threaded build (`make THREADS=1`).
+
+## SHARE-FUNCTION
+
+```lisp
+(SHARE-FUNCTION symbol)
+```
+
+Publishes the closure bound to *symbol* into the shared bytecode pool.
+The closure's compiled code (including nested code objects) is copied
+into process-wide shared memory.  The symbol name and package are
+recorded so that new threads can bind the function to the same name.
+
+Returns `#t`.
+
+**Note:** Call `SHARE-FUNCTION` in the main thread *before* creating
+child threads.  Only closures (compiled functions) can be shared; the
+function signals an error if the symbol's value is not a closure.
+
+```lisp
+(define (add1 n) (+ n 1))
+(share-function 'add1)
+
+;; Child threads will automatically have ADD1 available:
+(define h (thread-create "(number->string (add1 41))" #f))
+(thread-join h)   ; => #t
+```
+
+## SHARED-CODE?
+
+```lisp
+(SHARED-CODE?)
+```
+
+Returns `#t` if the shared bytecode pool contains any published code,
+`#f` otherwise.  Takes no arguments.
+
+```lisp
+(shared-code?)          ; => #f (nothing shared yet)
+(define (double x) (* 2 x))
+(share-function 'double)
+(shared-code?)          ; => #t
 ```
