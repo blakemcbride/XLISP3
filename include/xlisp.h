@@ -1223,6 +1223,26 @@ void xsendsuper(void);
 void xlObSymbols(void);
 void xlInitObjects(void);
 
+/* xlnthread.c */
+xlValue xthreadcreate(void);
+xlValue xthreadjoin(void);
+xlValue xthreadp(void);
+
+/* xlsync.c - synchronization primitives */
+xlValue xmutexcreate(void);
+xlValue xmutexlock(void);
+xlValue xmutexunlock(void);
+xlValue xmutexdestroy(void);
+xlValue xmutexlookup(void);
+xlValue xmutexp(void);
+xlValue xcondcreate(void);
+xlValue xcondwait(void);
+xlValue xcondsignal(void);
+xlValue xcondbroadcast(void);
+xlValue xconddestroy(void);
+xlValue xcondlookup(void);
+xlValue xcondp(void);
+
 /* xlcobj.c */
 xlEXPORT xlCClass *xlMakeCClass(xlCClassDef *def,xlValue super);
 xlEXPORT void *xlGetArgUninitializedCInstance(xlCClass *ccls);

@@ -36,9 +36,17 @@ extern xlValue s_stackpointer;
 #define BCD_ABORT       3
 
 /* local variables */
+#ifdef XLISP_USE_CONTEXT
+/* In context mode, these are per-thread via the context structure */
+#define base    xlint_base
+#define pc      xlint_pc
+#define xltarget xlint_xltarget
+#define sample  xlint_sample
+#else
 static unsigned char *base,*pc;
 static xlValue *xltarget;               /* current throw target */
 static int sample=xlSRATE;
+#endif
 
 /* local prototypes */
 static void show_call(xlValue code,xlValue frame);
@@ -1213,12 +1221,17 @@ static void opBAD(void)
 
 /* opcode dispatch table */
 static void (*optab[256])(void);
+static int optabInitialized = 0;
 
 /* xlInitInterpreter - initialize the interpreter */
 void xlInitInterpreter(void)
 {
     int i;
-    
+
+    /* optab is shared and immutable after first init - skip if done */
+    if (optabInitialized)
+        return;
+
     /* first fill in the default opcode handler */
     for (i = 0; i < 256; ++i)
         optab[i] = opBAD;
@@ -1277,6 +1290,8 @@ void xlInitInterpreter(void)
     optab[xlopPROTECT] = opPROTECT;
     optab[xlopUNPROTECT] = opUNPROTECT;
     optab[xlopENV] = opENV;
+
+    optabInitialized = 1;
 }
 
 /* xlInternalCall - call a function */

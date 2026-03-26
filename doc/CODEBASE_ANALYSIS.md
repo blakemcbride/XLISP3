@@ -2,17 +2,18 @@
 
 ## Overview
 
-**XLISP** is an object-oriented LISP interpreter/compiler (v3.3) by David Michael Betz (1983-2017). Licensed under MIT. It compiles Lisp to bytecodes rather than interpreting directly, making it faster than traditional interpreters.
+**XLISP** is an object-oriented LISP interpreter/compiler (v10.0.0) by David Michael Betz (1983-2017). Licensed under MIT. It compiles Lisp to bytecodes rather than interpreting directly, making it faster than traditional interpreters. Supports native multi-threading with per-thread interpreter contexts when built in reentrant mode.
 
 ## Project Structure
 
 ```
 xlisp/
-├── src/           # Core C source (27 files, ~18.8K lines)
-├── include/       # Header files
+├── src/           # Core C source (29 files, ~19.5K lines)
+├── include/       # Header files (xlisp.h, xlcontext.h, xlcompat.h, xlthread.h)
 ├── xlisp/         # REPL executable source
 ├── ext/           # Extension module
 ├── doc/           # Documentation (Markdown)
+├── tests/         # Lisp test scripts
 ├── *.lsp          # 14 Lisp initialization/library files
 ├── CMakeLists.txt # Modern build system
 └── Makefile       # Legacy build
@@ -35,6 +36,9 @@ xlisp/
 | `xlimage.c` | Memory image/workspace management |
 | `xlfasl.c` | Fast loading (compiled bytecode) |
 | `xldbg.c` | Debugging support |
+| `xlcontext.c` | Per-thread interpreter context management |
+| `xlnthread.c` | Native thread creation/join |
+| `xlsync.c` | Synchronization primitives (mutexes, condition variables) |
 | `msstuff.c` | Windows-specific code |
 | `unstuff.c` | Unix-specific code |
 
@@ -88,6 +92,20 @@ Lisp Source Code
 - `xlSP` - value stack pointer
 - `xlCSP` - control stack pointer
 
+### Threading Architecture
+
+When built with `THREADS=1`:
+
+- All global interpreter state is encapsulated in an `xlContext` structure
+  (`include/xlcontext.h`)
+- A thread-local pointer (`xl_current_context`) tracks the active context
+- Compatibility macros in `include/xlcompat.h` redirect global variable
+  accesses through the context pointer (e.g., `#define xlVal (xlCtx()->val)`)
+- Each thread gets independent stacks, heap, GC, symbols, and packages
+- The bytecode dispatch table (`optab`) is shared and immutable
+- Synchronization objects (mutexes, condition variables) are shared at the
+  C level via a named registry with reference counting
+
 ## Notable Features
 
 - **Bytecode compilation** - not direct interpretation
@@ -95,6 +113,8 @@ Lisp Source Code
 - **Class-based OOP** with inheritance and method dispatch
 - **Scheme influences** - lexical scoping, proper tail recursion
 - **Common Lisp elements** - packages, keywords, multiple values
+- **Native threading** - per-thread interpreter contexts with mutexes and
+  condition variables for synchronization
 - **Cross-platform** (Windows, Linux, macOS) via ANSI C
 - **Extensible** via C API and extension modules
 - **FASL support** - fast loading of pre-compiled bytecode
@@ -117,6 +137,16 @@ Requires CMake 3.14+. Supports link-time optimization (IPO).
 1. **xlisp** (library) - Core interpreter/compiler
 2. **ext** (shared library) - Extension module
 3. **xlisp-repl** (executable) - Interactive REPL
+
+### Reentrant/Threading Build
+
+```bash
+make clean
+make THREADS=1
+```
+
+Defines `XLISP_USE_CONTEXT` and links with `-lpthread` (on Unix).
+Enables `thread-create`, `thread-join`, mutexes, and condition variables.
 
 ### Legacy Support
 
@@ -151,3 +181,5 @@ xlClass()
 - `msstuff.c` - Windows-specific implementation
 - `unstuff.c` - Unix-specific implementation
 - ANSI C for maximum portability
+- Thread-local storage: `__thread` (GCC/Clang), `__declspec(thread)` (MSVC), pthread keys (fallback)
+- Threading: pthreads (Unix), Win32 threads (Windows)

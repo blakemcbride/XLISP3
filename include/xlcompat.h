@@ -47,7 +47,14 @@
 #define xlcatch          (xlCtx()->catchFrame)
 #define xlTraceBytecodes (xlCtx()->traceBytecodes)
 
-/* Note: pc and pcBase are static in xlint.c, handled separately */
+/*
+ * Bytecode interpreter locals (were file-static in xlint.c).
+ * These MUST be per-thread for correct concurrent execution.
+ */
+#define xlint_base      (xlCtx()->pcBase)
+#define xlint_pc        (xlCtx()->pc)
+#define xlint_xltarget  (xlCtx()->throwTarget)
+#define xlint_sample    (xlCtx()->sample)
 
 /* ====================================================================
  * Memory Management - Node Space
@@ -198,6 +205,12 @@
  * Compiler State
  * ==================================================================== */
 #define xlDebugModeP   (xlCtx()->debugModeP)
+
+/* Compiler locals (were file-static in xlcom.c) */
+#define xlcom_cbuff    (xlCtx()->cbuff)
+#define xlcom_cbase    (xlCtx()->cbase)
+#define xlcom_cptr     (xlCtx()->cptr)
+#define xlcom_info     (xlCtx()->compilerInfo)
 
 /* ====================================================================
  * Object System

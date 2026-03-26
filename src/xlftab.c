@@ -398,6 +398,26 @@ static xlSubrDef subrtab[] = {
 {       "%GET-STACK-POINTER",               xGetStackPointer            },
 #endif
 
+        /* threading functions */
+{       "THREAD-CREATE",                    xthreadcreate               },
+{       "THREAD-JOIN",                      xthreadjoin                 },
+{       "THREAD?",                          xthreadp                    },
+
+        /* synchronization primitives */
+{       "MUTEX-CREATE",                     xmutexcreate                },
+{       "MUTEX-LOCK",                       xmutexlock                  },
+{       "MUTEX-UNLOCK",                     xmutexunlock                },
+{       "MUTEX-DESTROY",                    xmutexdestroy               },
+{       "MUTEX-LOOKUP",                     xmutexlookup                },
+{       "MUTEX?",                           xmutexp                     },
+{       "CONDITION-CREATE",                 xcondcreate                 },
+{       "CONDITION-WAIT",                   xcondwait                   },
+{       "CONDITION-SIGNAL",                 xcondsignal                 },
+{       "CONDITION-BROADCAST",              xcondbroadcast              },
+{       "CONDITION-DESTROY",                xconddestroy                },
+{       "CONDITION-LOOKUP",                 xcondlookup                 },
+{       "CONDITION?",                       xcondp                      },
+
 {0,0} /* end of table marker */
 };
 

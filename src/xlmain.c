@@ -9,7 +9,7 @@
 
 /* the program banner */
 #define BANNER  "\
-XLISP 3.3, September 6, 2002 Copyright (c) 1984-2002, by David Betz"
+XLISP 10.0.0 Copyright (c) 1984-2002, by David Betz"
 
 /*
  * When XLISP_USE_CONTEXT is defined, globals become macros to xlCtx().

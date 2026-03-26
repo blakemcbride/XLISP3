@@ -36,12 +36,23 @@ extern xlValue slk_optional,slk_rest;
 #endif
 
 /* local variables */
+#ifdef XLISP_USE_CONTEXT
+#define info    xlcom_info
+#else
 static xlValue info;            /* compiler info */
+#endif
 
 /* code buffer */
+#ifdef XLISP_USE_CONTEXT
+/* In context mode, these are per-thread via the context structure */
+#define cbuff   xlcom_cbuff
+#define cbase   xlcom_cbase
+#define cptr    xlcom_cptr
+#else
 static unsigned char *cbuff = NULL;     /* base of code buffer */
 static int cbase;                       /* base for current function */
 static int cptr;                        /* code buffer pointer */
+#endif
 
 /* forward declarations */
 static void do_expr(xlValue expr,int cont);

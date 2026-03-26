@@ -10,7 +10,7 @@ make
 
 Reentrant/thread-safe build:
 ```bash
-make REENTRANT=1
+make THREADS=1
 ```
 
 The reentrant build enables thread-local interpreter contexts, allowing XLISP to be safely called from multiple threads.
@@ -48,7 +48,7 @@ void main(int argc,char *argv[])
 
 ### Multi-threaded Usage
 
-When built with `REENTRANT=1`, each thread must create and initialize its own interpreter context. Contexts are completely independent - no Lisp data is shared between threads.
+When built with `THREADS=1`, each thread must create and initialize its own interpreter context. Contexts are completely independent - no Lisp data is shared between threads.
 
 ```cpp
 #include "xlisp.h"

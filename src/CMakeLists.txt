@@ -19,6 +19,8 @@ set(xlisp_sources
     xlitersq.c
     xlmain.c
     xlmath.c
+    xlnthread.c
+    xlsync.c
     xlobj.c
     xlosint.c
     xlprint.c

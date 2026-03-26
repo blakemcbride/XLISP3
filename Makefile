@@ -47,9 +47,12 @@ MKDIR=mkdir
 
 CFLAGS=-Wall -DUNIX -I$(HDRDIR) -fPIC
 
-# Reentrant/threading support: make REENTRANT=1
-ifdef REENTRANT
+# Threading support: make THREADS=1
+ifdef THREADS
   CFLAGS += -DXLISP_USE_CONTEXT
+  THREADLIBS = -lpthread
+else
+  THREADLIBS =
 endif
 
 INC=$(HDRDIR)/xlisp.h
@@ -89,7 +92,7 @@ $(XLISPOBJDIR)/%.o:	%.c $(INC)
 	@$(ECHO) $@
 
 $(BINDIR)/xlisp$(EXT):	$(XLISPOBJDIR) $(XLISPOBJS) library
-	@$(CC) $(CFLAGS) $(XLISPOBJS) -L$(LIBDIR) -lxlisp -lm -o $@
+	@$(CC) $(CFLAGS) $(XLISPOBJS) -L$(LIBDIR) -lxlisp -lm $(THREADLIBS) -o $@
 	@$(ECHO) $@
 
 ###########
@@ -120,6 +123,8 @@ $(LIBOBJDIR)/xlio.o \
 $(LIBOBJDIR)/xlmain.o \
 $(LIBOBJDIR)/xlitersq.o \
 $(LIBOBJDIR)/xlmath.o \
+$(LIBOBJDIR)/xlnthread.o \
+$(LIBOBJDIR)/xlsync.o \
 $(LIBOBJDIR)/xlobj.o \
 $(LIBOBJDIR)/xlosint.o \
 $(LIBOBJDIR)/xlprint.o \

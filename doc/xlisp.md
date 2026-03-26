@@ -2382,3 +2382,290 @@ frame. The symbol values start at offset 1.
 
 - Objects are represented as vectors. The element at offset 0 is the class of the
 object. The remaining elements are the object's instance variable values.
+
+# 49. Threading Functions
+
+XLISP supports native thread creation when built in reentrant mode
+(`make THREADS=1`).  Each spawned thread gets its own independent
+interpreter context -- it does not share any Lisp-level state with the
+calling thread.  The thread evaluates a string expression in a fresh
+environment.
+
+If the system was not built with `THREADS=1`, calling these functions
+signals an error.
+
+**Important:** `THREAD-CREATE` evaluates only the *first* expression in
+the string.  To execute multiple statements, wrap them in `(begin ...)`.
+
+## THREAD-CREATE
+
+```lisp
+(THREAD-CREATE expr-string [init-file])
+```
+
+Creates a new native thread that evaluates *expr-string* (a string
+containing a Lisp expression) in its own interpreter context.
+
+*init-file* is an optional string naming an initialization file to load
+before evaluating the expression.  The default is `"xlisp.lsp"`.  Pass
+`#f` to skip loading any initialization file.
+
+Returns a thread handle (a foreign-pointer object) that can be passed to
+`THREAD-JOIN`.
+
+Example:
+```lisp
+;; Spawn a thread that computes fib(30)
+(define h (thread-create
+  "(begin
+     (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
+     (fib 30))"))
+
+;; Wait for it to finish
+(thread-join h)   ; => #t
+```
+
+Example with no init file (faster startup):
+```lisp
+(define h (thread-create "(+ 1 2)" #f))
+(thread-join h)   ; => #t
+```
+
+## THREAD-JOIN
+
+```lisp
+(THREAD-JOIN handle)
+```
+
+Waits for the thread identified by *handle* to complete.  Returns `#t`
+if the thread finished successfully.  Signals an error if the thread
+terminated with an error or if the handle has already been joined.
+
+Each thread handle must be joined exactly once.
+
+## THREAD?
+
+```lisp
+(THREAD? obj)
+```
+
+Returns `#t` if *obj* is a live (not yet joined) thread handle, `#f`
+otherwise.
+
+# 50. Synchronization Primitives
+
+These functions provide mutexes and condition variables for coordinating
+between threads.  They require a reentrant build (`make THREADS=1`).
+
+Since each thread has an independent Lisp heap, synchronization objects
+are shared across threads through a **named registry**.  The creating
+thread passes an optional name to the create function; other threads
+look up the object by that name.  Both threads' handles point to the
+same underlying OS synchronization object.
+
+## Mutexes
+
+### MUTEX-CREATE
+
+```lisp
+(MUTEX-CREATE [name])
+```
+
+Creates a new mutex.  If *name* (a string) is provided, the mutex is
+registered globally so other threads can find it with `MUTEX-LOOKUP`.
+
+### MUTEX-LOCK
+
+```lisp
+(MUTEX-LOCK mutex)
+```
+
+Acquires the mutex, blocking if it is already held by another thread.
+Returns `#t`.
+
+### MUTEX-UNLOCK
+
+```lisp
+(MUTEX-UNLOCK mutex)
+```
+
+Releases the mutex.  Returns `#t`.
+
+### MUTEX-DESTROY
+
+```lisp
+(MUTEX-DESTROY mutex)
+```
+
+Destroys the mutex and releases its resources.  Returns `#t`.  Signals
+an error if already destroyed.
+
+### MUTEX-LOOKUP
+
+```lisp
+(MUTEX-LOOKUP name)
+```
+
+Looks up a named mutex in the global registry.  Returns a mutex handle,
+or `#f` if no mutex with that name exists.
+
+### MUTEX?
+
+```lisp
+(MUTEX? obj)
+```
+
+Returns `#t` if *obj* is a live (not yet destroyed) mutex handle.
+
+### Mutex Example
+
+```lisp
+;; Create a named mutex
+(define m (mutex-create "my-lock"))
+
+;; Lock before spawning child so it blocks until main releases
+(mutex-lock m)
+
+(define h (thread-create
+  "(begin
+     (define m (mutex-lookup \"my-lock\"))
+     (mutex-lock m)
+     ;; critical section
+     (mutex-unlock m))"
+  #f))
+
+(mutex-unlock m)
+(thread-join h)
+(mutex-destroy m)
+```
+
+## Condition Variables
+
+### CONDITION-CREATE
+
+```lisp
+(CONDITION-CREATE [name])
+```
+
+Creates a new condition variable.  If *name* is provided, it is
+registered globally for cross-thread lookup.
+
+### CONDITION-WAIT
+
+```lisp
+(CONDITION-WAIT cond mutex)
+```
+
+Atomically unlocks *mutex* and blocks until *cond* is signaled.
+When the thread wakes, *mutex* is reacquired before returning.
+Returns `#t`.
+
+### CONDITION-SIGNAL
+
+```lisp
+(CONDITION-SIGNAL cond)
+```
+
+Wakes one thread waiting on *cond*.  Returns `#t`.
+
+### CONDITION-BROADCAST
+
+```lisp
+(CONDITION-BROADCAST cond)
+```
+
+Wakes all threads waiting on *cond*.  Returns `#t`.
+
+### CONDITION-DESTROY
+
+```lisp
+(CONDITION-DESTROY cond)
+```
+
+Destroys the condition variable.  Returns `#t`.
+
+### CONDITION-LOOKUP
+
+```lisp
+(CONDITION-LOOKUP name)
+```
+
+Looks up a named condition variable.  Returns a handle, or `#f` if not
+found.
+
+### CONDITION?
+
+```lisp
+(CONDITION? obj)
+```
+
+Returns `#t` if *obj* is a live condition variable handle.
+
+### Condition Variable Example
+
+```lisp
+(define m (mutex-create "m"))
+(define cv (condition-create "cv"))
+
+;; Lock before spawning -- child blocks on mutex-lock until
+;; main enters condition-wait (which releases the mutex).
+(mutex-lock m)
+
+(define h (thread-create
+  "(begin
+     (define m (mutex-lookup \"m\"))
+     (define c (condition-lookup \"cv\"))
+     (mutex-lock m)
+     (condition-signal c)
+     (mutex-unlock m))"
+  #f))
+
+(condition-wait cv m)   ; releases m, blocks, reacquires m
+(mutex-unlock m)
+(thread-join h)
+(mutex-destroy m)
+(condition-destroy cv)
+```
+
+### Broadcast Example
+
+To broadcast reliably, have each child signal a "ready" condition
+variable before entering the broadcast wait:
+
+```lisp
+(define m (mutex-create "m"))
+(define bc (condition-create "bc"))
+(define r1 (condition-create "r1"))
+(define r2 (condition-create "r2"))
+
+(mutex-lock m)
+
+(define h1 (thread-create
+  "(begin
+     (define m (mutex-lookup \"m\"))
+     (define bc (condition-lookup \"bc\"))
+     (define r (condition-lookup \"r1\"))
+     (mutex-lock m)
+     (condition-signal r)
+     (condition-wait bc m)
+     (mutex-unlock m))" #f))
+(condition-wait r1 m)
+
+(define h2 (thread-create
+  "(begin
+     (define m (mutex-lookup \"m\"))
+     (define bc (condition-lookup \"bc\"))
+     (define r (condition-lookup \"r2\"))
+     (mutex-lock m)
+     (condition-signal r)
+     (condition-wait bc m)
+     (mutex-unlock m))" #f))
+(condition-wait r2 m)
+
+;; Both children are now waiting on bc
+(condition-broadcast bc)
+(mutex-unlock m)
+
+(thread-join h1)
+(thread-join h2)
+```

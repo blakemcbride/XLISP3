@@ -22,13 +22,14 @@ It has some really nice features as follows:
 ## To all of this, I have added:
 
 A. When used as an extension language, it is now reentrant and can handle multiple simultaneous threads.
-
-To this, I would like to add native thread support at some time.
+B. Native thread creation and joining from Lisp (`thread-create`, `thread-join`, `thread?`).
+C. Synchronization primitives: mutexes and condition variables with cross-thread sharing via named registries.
+D. Updated version to 10.0.0.
 
 ## Building
 
     make                 # standard build
-    make REENTRANT=1     # thread-safe build
+    make THREADS=1       # thread-safe build
     make clean           # remove build artifacts
 
 ## The original README file is located at README2.md

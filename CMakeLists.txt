@@ -1,10 +1,24 @@
 cmake_minimum_required(VERSION 3.14)
 project(XLisp
-    VERSION 3.3
+    VERSION 10.0.0
     DESCRIPTION "XLISP - an object-oriented LISP"
     LANGUAGES C)
 
+# Threading support option
+option(XLISP_THREADS "Build with threading support" OFF)
+
+# Find threads package
+find_package(Threads)
+
 add_library(xlisp "")
+
+if(XLISP_THREADS)
+    target_compile_definitions(xlisp PUBLIC XLISP_USE_CONTEXT)
+    if(Threads_FOUND)
+        target_link_libraries(xlisp PUBLIC Threads::Threads)
+    endif()
+endif()
+
 add_subdirectory(src)
 
 add_library(ext SHARED "")

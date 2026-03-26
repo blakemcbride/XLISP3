@@ -71,6 +71,7 @@ typedef struct xlContext {
     unsigned char *pcBase;      /* base of current code object */
     xlErrorTarget *errTarget;   /* error/abort target chain */
     xlValue *catchFrame;        /* current catch frame pointer */
+    xlValue *throwTarget;       /* current throw target */
     int traceBytecodes;         /* bytecode tracing enabled */
     int sample;                 /* control character sample counter */
 
@@ -221,6 +222,10 @@ typedef struct xlContext {
      * Compiler State
      * ================================================================ */
     int debugModeP;             /* true to turn off tail recursion */
+    unsigned char *cbuff;       /* compiler code buffer */
+    int cbase;                  /* compiler base for current function */
+    int cptr;                   /* compiler code buffer pointer */
+    xlValue compilerInfo;       /* compiler info during compilation */
 
     /* ================================================================
      * Initialization State
