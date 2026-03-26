@@ -1242,6 +1242,14 @@ xlValue xcondbroadcast(void);
 xlValue xconddestroy(void);
 xlValue xcondlookup(void);
 xlValue xcondp(void);
+xlValue xchannelcreate(void);
+xlValue xchannelsend(void);
+xlValue xchannelreceive(void);
+xlValue xchannelclose(void);
+xlValue xchanneldestroy(void);
+xlValue xchannellookup(void);
+xlValue xchannelopenp(void);
+xlValue xchannelp(void);
 
 /* xlcobj.c */
 xlEXPORT xlCClass *xlMakeCClass(xlCClassDef *def,xlValue super);

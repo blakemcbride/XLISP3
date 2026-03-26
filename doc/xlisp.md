@@ -2455,7 +2455,7 @@ otherwise.
 # 50. Synchronization Primitives
 
 These functions provide mutexes and condition variables for coordinating
-between threads.  They require a reentrant build (`make THREADS=1`).
+between threads.  They require a threaded build (`make THREADS=1`).
 
 Since each thread has an independent Lisp heap, synchronization objects
 are shared across threads through a **named registry**.  The creating
@@ -2668,4 +2668,172 @@ variable before entering the broadcast wait:
 
 (thread-join h1)
 (thread-join h2)
+```
+
+# 51. Message Channels
+
+Channels are thread-safe message queues for exchanging string data
+between threads.  They require a threaded build (`make THREADS=1`).
+
+Channels have their own internal locking, so no separate mutex is needed
+to send or receive.  They use the same **named registry** as mutexes
+and condition variables for cross-thread sharing.
+
+## CHANNEL-CREATE
+
+```lisp
+(CHANNEL-CREATE [name] [capacity])
+```
+
+Creates a new channel.  If *name* (a string) is provided, the channel
+is registered globally for cross-thread lookup.  If *capacity* (an
+integer) is provided, the channel is bounded: `CHANNEL-SEND` will block
+when the queue is full.  If omitted or 0, the channel is unbounded.
+
+The arguments can be given in either order:
+- `(channel-create)` -- anonymous, unbounded
+- `(channel-create "name")` -- named, unbounded
+- `(channel-create 10)` -- anonymous, capacity 10
+- `(channel-create "name" 10)` -- named, capacity 10
+
+## CHANNEL-SEND
+
+```lisp
+(CHANNEL-SEND channel string)
+```
+
+Enqueues *string* onto the channel.  If the channel is bounded and full,
+blocks until space is available.  Signals an error if the channel has
+been closed.  Returns `#t`.
+
+## CHANNEL-RECEIVE
+
+```lisp
+(CHANNEL-RECEIVE channel)
+```
+
+Dequeues and returns the next string from the channel.  If the channel
+is empty and still open, blocks until a message arrives.  Returns `#f`
+if the channel is closed and empty (no more data will arrive).
+
+## CHANNEL-CLOSE
+
+```lisp
+(CHANNEL-CLOSE channel)
+```
+
+Marks the channel as closed.  No further sends are allowed, but pending
+messages can still be received.  Wakes all blocked senders and receivers.
+Returns `#t`.
+
+## CHANNEL-DESTROY
+
+```lisp
+(CHANNEL-DESTROY channel)
+```
+
+Destroys the channel and frees its resources.  Reference-counted: the
+actual OS resources are freed when the last reference is released.
+Returns `#t`.
+
+## CHANNEL-LOOKUP
+
+```lisp
+(CHANNEL-LOOKUP name)
+```
+
+Looks up a named channel in the global registry.  Returns a channel
+handle, or `#f` if not found.
+
+## CHANNEL-OPEN?
+
+```lisp
+(CHANNEL-OPEN? channel)
+```
+
+Returns `#t` if the channel has not been closed, `#f` otherwise.
+
+## CHANNEL?
+
+```lisp
+(CHANNEL? obj)
+```
+
+Returns `#t` if *obj* is a live (not yet destroyed) channel handle.
+
+## Channel Examples
+
+### Producer/Consumer
+
+```lisp
+(define ch (channel-create "work"))
+
+;; Producer thread
+(define h (thread-create
+  "(begin
+     (define ch (channel-lookup \"work\"))
+     (channel-send ch \"hello\")
+     (channel-send ch \"world\")
+     (channel-close ch))"
+  #f))
+
+;; Consumer (main thread)
+(define (consume)
+  (let ((msg (channel-receive ch)))
+    (if msg
+      (begin (display msg) (newline) (consume)))))
+(consume)    ; prints "hello" then "world"
+
+(thread-join h)
+(channel-destroy ch)
+```
+
+### Bounded Channel (Backpressure)
+
+```lisp
+(define ch (channel-create "bounded" 2))
+
+;; Fast producer sends 5 messages; blocks when queue is full
+(define h (thread-create
+  "(begin
+     (define ch (channel-lookup \"bounded\"))
+     (channel-send ch \"a\")
+     (channel-send ch \"b\")
+     (channel-send ch \"c\")
+     (channel-send ch \"d\")
+     (channel-send ch \"e\")
+     (channel-close ch))"
+  #f))
+
+;; Consumer drains
+(define (consume)
+  (let ((msg (channel-receive ch)))
+    (if msg (begin (display msg) (newline) (consume)))))
+(consume)
+
+(thread-join h)
+(channel-destroy ch)
+```
+
+### Multiple Producers
+
+```lisp
+(define ch (channel-create "results"))
+
+(define h1 (thread-create
+  "(begin
+     (define ch (channel-lookup \"results\"))
+     (channel-send ch \"from-A\"))" #f))
+
+(define h2 (thread-create
+  "(begin
+     (define ch (channel-lookup \"results\"))
+     (channel-send ch \"from-B\"))" #f))
+
+(display (channel-receive ch)) (newline)
+(display (channel-receive ch)) (newline)
+
+(thread-join h1)
+(thread-join h2)
+(channel-destroy ch)
 ```

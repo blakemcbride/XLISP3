@@ -24,8 +24,9 @@
  * matter -- no fields are used.  This lets mutex?, condition?, channel?
  * distinguish their handles from other foreign pointers.
  */
-static xlCClass mutexTag  = { NULL, NULL, NULL };
-static xlCClass condTag   = { NULL, NULL, NULL };
+static xlCClass mutexTag   = { NULL, NULL, NULL };
+static xlCClass condTag    = { NULL, NULL, NULL };
+static xlCClass channelTag = { NULL, NULL, NULL };
 
 /* ====================================================================
  * Named-object registry
@@ -40,7 +41,7 @@ static xlCClass condTag   = { NULL, NULL, NULL };
 typedef struct xlSyncEntry {
     char *name;                 /* registry name (malloc'd) */
     void *obj;                  /* pointer to the handle struct */
-    xlCClass *tag;              /* &mutexTag or &condTag */
+    xlCClass *tag;              /* &mutexTag, &condTag, or &channelTag */
     int refCount;               /* number of live references */
     struct xlSyncEntry *next;
 } xlSyncEntry;
@@ -592,6 +593,421 @@ xlValue xcondp(void)
     arg = xlGetArg();
     xlLastArg();
     if (xlForeignPtrP(arg) && xlGetFPType(arg) == &condTag && xlGetFPtr(arg) != NULL)
+        return xlTrue;
+    return xlFalse;
+}
+
+
+/* ====================================================================
+ * Channel implementation
+ *
+ * A channel is a thread-safe message queue that carries C strings.
+ * It has its own internal lock and condition variables for blocking
+ * send (when bounded and full) and blocking receive (when empty).
+ * ==================================================================== */
+
+#ifdef XLISP_USE_CONTEXT
+
+typedef struct xlChannelNode {
+    char *data;                     /* C string (malloc'd copy) */
+    struct xlChannelNode *next;
+} xlChannelNode;
+
+typedef struct xlChannelHandle {
+#ifdef _WIN32
+    CRITICAL_SECTION lock;
+    CONDITION_VARIABLE notEmpty;
+    CONDITION_VARIABLE notFull;
+#else
+    pthread_mutex_t lock;
+    pthread_cond_t notEmpty;
+    pthread_cond_t notFull;
+#endif
+    xlChannelNode *head;            /* dequeue from head */
+    xlChannelNode *tail;            /* enqueue at tail */
+    int count;                      /* current messages in queue */
+    int capacity;                   /* max messages (0 = unbounded) */
+    int closed;                     /* non-zero after channel-close */
+    int destroyed;
+} xlChannelHandle;
+
+static xlChannelHandle *allocChannel(int capacity)
+{
+    xlChannelHandle *ch = (xlChannelHandle *)malloc(sizeof(xlChannelHandle));
+    if (ch == NULL) return NULL;
+    memset(ch, 0, sizeof(xlChannelHandle));
+#ifdef _WIN32
+    InitializeCriticalSection(&ch->lock);
+    InitializeConditionVariable(&ch->notEmpty);
+    InitializeConditionVariable(&ch->notFull);
+#else
+    pthread_mutex_init(&ch->lock, NULL);
+    pthread_cond_init(&ch->notEmpty, NULL);
+    pthread_cond_init(&ch->notFull, NULL);
+#endif
+    ch->head = NULL;
+    ch->tail = NULL;
+    ch->count = 0;
+    ch->capacity = capacity;
+    ch->closed = 0;
+    ch->destroyed = 0;
+    return ch;
+}
+
+static void freeChannel(xlChannelHandle *ch)
+{
+    xlChannelNode *n, *next;
+    if (ch == NULL) return;
+    /* free any remaining messages */
+    for (n = ch->head; n != NULL; n = next) {
+        next = n->next;
+        free(n->data);
+        free(n);
+    }
+#ifdef _WIN32
+    DeleteCriticalSection(&ch->lock);
+#else
+    pthread_cond_destroy(&ch->notFull);
+    pthread_cond_destroy(&ch->notEmpty);
+    pthread_mutex_destroy(&ch->lock);
+#endif
+    free(ch);
+}
+
+#endif /* XLISP_USE_CONTEXT */
+
+
+/* xchannelcreate - (channel-create [name] [capacity]) => channel handle */
+xlValue xchannelcreate(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    const char *name = NULL;
+    int capacity = 0;
+    xlChannelHandle *ch;
+    xlValue handle;
+
+    /* optional name argument */
+    if (xlMoreArgsP()) {
+        xlValue arg = xlGetArg();
+        if (xlStringP(arg)) {
+            name = xlGetString(arg);
+            /* optional capacity after name */
+            if (xlMoreArgsP()) {
+                xlValue capArg = xlGetArgFixnum();
+                capacity = (int)xlGetFixnum(capArg);
+                if (capacity < 0) capacity = 0;
+            }
+        } else if (xlFixnumP(arg)) {
+            /* (channel-create capacity) with no name */
+            capacity = (int)xlGetFixnum(arg);
+            if (capacity < 0) capacity = 0;
+        } else {
+            xlBadType(arg);
+        }
+    }
+    xlLastArg();
+
+    ch = allocChannel(capacity);
+    if (ch == NULL)
+        xlFmtError("channel-create: out of memory");
+
+    handle = xlMakeForeignPtr(&channelTag, ch);
+
+    if (name != NULL) {
+        if (!registryAdd(name, ch, &channelTag)) {
+            freeChannel(ch);
+            xlSetFPtr(handle, NULL);
+            xlFmtError("channel-create: name already in use");
+        }
+    }
+
+    return handle;
+#else
+    if (xlMoreArgsP()) xlGetArg();
+    if (xlMoreArgsP()) xlGetArg();
+    xlLastArg();
+    xlFmtError("channel-create: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannelsend - (channel-send channel string) => #t */
+xlValue xchannelsend(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue chArg, strArg;
+    xlChannelHandle *ch;
+    const char *str;
+    xlChannelNode *node;
+
+    chArg = xlGetArgForeignPtr();
+    strArg = xlGetArgString();
+    xlLastArg();
+
+    if (xlGetFPType(chArg) != &channelTag)
+        xlFmtError("channel-send: not a channel");
+    ch = (xlChannelHandle *)xlGetFPtr(chArg);
+    if (ch == NULL || ch->destroyed)
+        xlFmtError("channel-send: channel has been destroyed");
+
+    str = xlGetString(strArg);
+
+    /* allocate the message node */
+    node = (xlChannelNode *)malloc(sizeof(xlChannelNode));
+    if (node == NULL)
+        xlFmtError("channel-send: out of memory");
+    node->data = (char *)malloc(strlen(str) + 1);
+    if (node->data == NULL) {
+        free(node);
+        xlFmtError("channel-send: out of memory");
+    }
+    strcpy(node->data, str);
+    node->next = NULL;
+
+    /* enqueue with blocking if bounded and full */
+#ifdef _WIN32
+    EnterCriticalSection(&ch->lock);
+    while (ch->capacity > 0 && ch->count >= ch->capacity && !ch->closed)
+        SleepConditionVariableCS(&ch->notFull, &ch->lock, INFINITE);
+    if (ch->closed) {
+        LeaveCriticalSection(&ch->lock);
+        free(node->data);
+        free(node);
+        xlFmtError("channel-send: channel is closed");
+    }
+    if (ch->tail == NULL) {
+        ch->head = ch->tail = node;
+    } else {
+        ch->tail->next = node;
+        ch->tail = node;
+    }
+    ch->count++;
+    WakeConditionVariable(&ch->notEmpty);
+    LeaveCriticalSection(&ch->lock);
+#else
+    pthread_mutex_lock(&ch->lock);
+    while (ch->capacity > 0 && ch->count >= ch->capacity && !ch->closed)
+        pthread_cond_wait(&ch->notFull, &ch->lock);
+    if (ch->closed) {
+        pthread_mutex_unlock(&ch->lock);
+        free(node->data);
+        free(node);
+        xlFmtError("channel-send: channel is closed");
+    }
+    if (ch->tail == NULL) {
+        ch->head = ch->tail = node;
+    } else {
+        ch->tail->next = node;
+        ch->tail = node;
+    }
+    ch->count++;
+    pthread_cond_signal(&ch->notEmpty);
+    pthread_mutex_unlock(&ch->lock);
+#endif
+
+    return xlTrue;
+#else
+    xlGetArgForeignPtr();
+    xlGetArgString();
+    xlLastArg();
+    xlFmtError("channel-send: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannelreceive - (channel-receive channel) => string or #f */
+xlValue xchannelreceive(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue chArg;
+    xlChannelHandle *ch;
+    xlChannelNode *node;
+    char *data;
+    xlValue result;
+
+    chArg = xlGetArgForeignPtr();
+    xlLastArg();
+
+    if (xlGetFPType(chArg) != &channelTag)
+        xlFmtError("channel-receive: not a channel");
+    ch = (xlChannelHandle *)xlGetFPtr(chArg);
+    if (ch == NULL || ch->destroyed)
+        xlFmtError("channel-receive: channel has been destroyed");
+
+    /* dequeue with blocking if empty */
+#ifdef _WIN32
+    EnterCriticalSection(&ch->lock);
+    while (ch->head == NULL && !ch->closed)
+        SleepConditionVariableCS(&ch->notEmpty, &ch->lock, INFINITE);
+    if (ch->head == NULL) {
+        /* closed and empty */
+        LeaveCriticalSection(&ch->lock);
+        return xlFalse;
+    }
+    node = ch->head;
+    ch->head = node->next;
+    if (ch->head == NULL) ch->tail = NULL;
+    ch->count--;
+    WakeConditionVariable(&ch->notFull);
+    LeaveCriticalSection(&ch->lock);
+#else
+    pthread_mutex_lock(&ch->lock);
+    while (ch->head == NULL && !ch->closed)
+        pthread_cond_wait(&ch->notEmpty, &ch->lock);
+    if (ch->head == NULL) {
+        /* closed and empty */
+        pthread_mutex_unlock(&ch->lock);
+        return xlFalse;
+    }
+    node = ch->head;
+    ch->head = node->next;
+    if (ch->head == NULL) ch->tail = NULL;
+    ch->count--;
+    pthread_cond_signal(&ch->notFull);
+    pthread_mutex_unlock(&ch->lock);
+#endif
+
+    /* convert C string to Lisp string */
+    data = node->data;
+    result = xlMakeCString(data);
+    free(data);
+    free(node);
+    return result;
+#else
+    xlGetArgForeignPtr();
+    xlLastArg();
+    xlFmtError("channel-receive: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannelclose - (channel-close channel) => #t */
+xlValue xchannelclose(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue chArg;
+    xlChannelHandle *ch;
+
+    chArg = xlGetArgForeignPtr();
+    xlLastArg();
+
+    if (xlGetFPType(chArg) != &channelTag)
+        xlFmtError("channel-close: not a channel");
+    ch = (xlChannelHandle *)xlGetFPtr(chArg);
+    if (ch == NULL || ch->destroyed)
+        xlFmtError("channel-close: channel has been destroyed");
+
+#ifdef _WIN32
+    EnterCriticalSection(&ch->lock);
+    ch->closed = 1;
+    WakeAllConditionVariable(&ch->notEmpty);
+    WakeAllConditionVariable(&ch->notFull);
+    LeaveCriticalSection(&ch->lock);
+#else
+    pthread_mutex_lock(&ch->lock);
+    ch->closed = 1;
+    pthread_cond_broadcast(&ch->notEmpty);
+    pthread_cond_broadcast(&ch->notFull);
+    pthread_mutex_unlock(&ch->lock);
+#endif
+
+    return xlTrue;
+#else
+    xlGetArgForeignPtr();
+    xlLastArg();
+    xlFmtError("channel-close: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchanneldestroy - (channel-destroy channel) => #t */
+xlValue xchanneldestroy(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue chArg;
+    xlChannelHandle *ch;
+
+    chArg = xlGetArgForeignPtr();
+    xlLastArg();
+
+    if (xlGetFPType(chArg) != &channelTag)
+        xlFmtError("channel-destroy: not a channel");
+    ch = (xlChannelHandle *)xlGetFPtr(chArg);
+    if (ch == NULL || ch->destroyed)
+        xlFmtError("channel-destroy: already destroyed");
+
+    ch->destroyed = 1;
+
+    if (registryRelease(ch, &channelTag) <= 0)
+        freeChannel(ch);
+
+    xlSetFPtr(chArg, NULL);
+    return xlTrue;
+#else
+    xlGetArgForeignPtr();
+    xlLastArg();
+    xlFmtError("channel-destroy: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannellookup - (channel-lookup name) => channel handle or #f */
+xlValue xchannellookup(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue nameArg;
+    const char *name;
+    xlChannelHandle *ch;
+
+    nameArg = xlGetArgString();
+    xlLastArg();
+    name = xlGetString(nameArg);
+
+    ch = (xlChannelHandle *)registryLookup(name, &channelTag);
+    if (ch == NULL || ch->destroyed)
+        return xlFalse;
+
+    return xlMakeForeignPtr(&channelTag, ch);
+#else
+    xlGetArgString();
+    xlLastArg();
+    xlFmtError("channel-lookup: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannelopenp - (channel-open? channel) => #t / #f */
+xlValue xchannelopenp(void)
+{
+#ifdef XLISP_USE_CONTEXT
+    xlValue chArg;
+    xlChannelHandle *ch;
+
+    chArg = xlGetArgForeignPtr();
+    xlLastArg();
+
+    if (xlGetFPType(chArg) != &channelTag)
+        xlFmtError("channel-open?: not a channel");
+    ch = (xlChannelHandle *)xlGetFPtr(chArg);
+    if (ch == NULL || ch->destroyed)
+        return xlFalse;
+
+    return ch->closed ? xlFalse : xlTrue;
+#else
+    xlGetArgForeignPtr();
+    xlLastArg();
+    xlFmtError("channel-open?: requires threaded build (THREADS=1)");
+    return xlNil;
+#endif
+}
+
+/* xchannelp - (channel? obj) => #t / #f */
+xlValue xchannelp(void)
+{
+    xlValue arg;
+    arg = xlGetArg();
+    xlLastArg();
+    if (xlForeignPtrP(arg) && xlGetFPType(arg) == &channelTag && xlGetFPtr(arg) != NULL)
         return xlTrue;
     return xlFalse;
 }

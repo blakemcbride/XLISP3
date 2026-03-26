@@ -38,7 +38,7 @@ xlisp/
 | `xldbg.c` | Debugging support |
 | `xlcontext.c` | Per-thread interpreter context management |
 | `xlnthread.c` | Native thread creation/join |
-| `xlsync.c` | Synchronization primitives (mutexes, condition variables) |
+| `xlsync.c` | Synchronization primitives (mutexes, condition variables, channels) |
 | `msstuff.c` | Windows-specific code |
 | `unstuff.c` | Unix-specific code |
 
@@ -103,8 +103,8 @@ When built with `THREADS=1`:
   accesses through the context pointer (e.g., `#define xlVal (xlCtx()->val)`)
 - Each thread gets independent stacks, heap, GC, symbols, and packages
 - The bytecode dispatch table (`optab`) is shared and immutable
-- Synchronization objects (mutexes, condition variables) are shared at the
-  C level via a named registry with reference counting
+- Synchronization objects (mutexes, condition variables, and message channels)
+  are shared at the C level via a named registry with reference counting
 
 ## Notable Features
 
@@ -113,8 +113,8 @@ When built with `THREADS=1`:
 - **Class-based OOP** with inheritance and method dispatch
 - **Scheme influences** - lexical scoping, proper tail recursion
 - **Common Lisp elements** - packages, keywords, multiple values
-- **Native threading** - per-thread interpreter contexts with mutexes and
-  condition variables for synchronization
+- **Native threading** - per-thread interpreter contexts with mutexes,
+  condition variables, and message channels for synchronization
 - **Cross-platform** (Windows, Linux, macOS) via ANSI C
 - **Extensible** via C API and extension modules
 - **FASL support** - fast loading of pre-compiled bytecode
@@ -146,7 +146,7 @@ make THREADS=1
 ```
 
 Defines `XLISP_USE_CONTEXT` and links with `-lpthread` (on Unix).
-Enables `thread-create`, `thread-join`, mutexes, and condition variables.
+Enables `thread-create`, `thread-join`, mutexes, condition variables, and channels.
 
 ### Legacy Support
 

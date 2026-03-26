@@ -417,6 +417,14 @@ static xlSubrDef subrtab[] = {
 {       "CONDITION-DESTROY",                xconddestroy                },
 {       "CONDITION-LOOKUP",                 xcondlookup                 },
 {       "CONDITION?",                       xcondp                      },
+{       "CHANNEL-CREATE",                   xchannelcreate              },
+{       "CHANNEL-SEND",                     xchannelsend                },
+{       "CHANNEL-RECEIVE",                  xchannelreceive             },
+{       "CHANNEL-CLOSE",                    xchannelclose               },
+{       "CHANNEL-DESTROY",                  xchanneldestroy             },
+{       "CHANNEL-LOOKUP",                   xchannellookup              },
+{       "CHANNEL-OPEN?",                    xchannelopenp               },
+{       "CHANNEL?",                         xchannelp                   },
 
 {0,0} /* end of table marker */
 };

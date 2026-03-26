@@ -7,9 +7,9 @@ contexts. Each thread gets a completely independent interpreter instance
 with its own stacks, heap, symbol tables, garbage collector, and VM
 registers. Lisp data cannot be shared between threads directly.
 
-Threads coordinate through synchronization primitives (mutexes and
-condition variables) that are shared at the C level via a named registry.
-Data is exchanged between threads as strings.
+Threads coordinate through synchronization primitives (mutexes,
+condition variables, and message channels) that are shared at the C level
+via a named registry. Data is exchanged between threads as strings.
 
 Threading requires a reentrant build (`make THREADS=1`).
 
@@ -241,19 +241,93 @@ Broadcast with ready-signaling:
 (thread-join h2)
 ```
 
+### Channels
+
+Channels are thread-safe message queues for exchanging string data
+between threads. They have internal locking and condition variables,
+so no separate mutex management is needed.
+
+```lisp
+(CHANNEL-CREATE [name] [capacity]) ; create a channel
+(CHANNEL-SEND channel string)      ; enqueue (blocks if bounded and full)
+(CHANNEL-RECEIVE channel)          ; dequeue (blocks if empty); #f when closed+empty
+(CHANNEL-CLOSE channel)            ; mark closed; pending messages still receivable
+(CHANNEL-DESTROY channel)          ; free resources (ref-counted)
+(CHANNEL-LOOKUP name)              ; look up a named channel => handle or #f
+(CHANNEL-OPEN? channel)            ; #t if not yet closed
+(CHANNEL? obj)                     ; type predicate
+```
+
+The optional *capacity* argument limits the queue size. When full, a
+bounded channel blocks the sender until the receiver drains a message.
+If omitted or 0, the channel is unbounded.
+
+Producer/consumer example:
+
+```lisp
+(define ch (channel-create "work"))
+
+;; Producer thread
+(define h (thread-create
+  "(begin
+     (define ch (channel-lookup \"work\"))
+     (channel-send ch \"hello\")
+     (channel-send ch \"world\")
+     (channel-close ch))"
+  #f))
+
+;; Consumer (main thread)
+(define (consume)
+  (let ((msg (channel-receive ch)))
+    (if msg
+      (begin (display msg) (newline) (consume)))))
+(consume)    ; prints "hello" then "world"
+
+(thread-join h)
+(channel-destroy ch)
+```
+
+Bounded channel with backpressure:
+
+```lisp
+(define ch (channel-create "bounded" 2))
+
+(define h (thread-create
+  "(begin
+     (define ch (channel-lookup \"bounded\"))
+     (channel-send ch \"a\")
+     (channel-send ch \"b\")
+     (channel-send ch \"c\")
+     (channel-send ch \"d\")
+     (channel-close ch))"
+  #f))
+
+;; Consumer drains messages; producer blocks when queue is full
+(define (consume)
+  (let ((msg (channel-receive ch)))
+    (if msg (begin (display msg) (newline) (consume)))))
+(consume)
+
+(thread-join h)
+(channel-destroy ch)
+```
+
 ### Type Discrimination
 
-Mutexes, condition variables, and thread handles are all foreign pointers
-but are tagged with distinct `xlCClass` type markers. The predicates
-`mutex?`, `condition?`, and `thread?` correctly distinguish between them:
+Mutexes, condition variables, channels, and thread handles are all
+foreign pointers but are tagged with distinct `xlCClass` type markers.
+The predicates `mutex?`, `condition?`, `channel?`, and `thread?`
+correctly distinguish between them:
 
 ```lisp
 (define m (mutex-create))
 (define cv (condition-create))
+(define ch (channel-create))
 (mutex? m)        ; => #t
 (mutex? cv)       ; => #f
 (condition? cv)   ; => #t
-(condition? m)    ; => #f
+(channel? ch)     ; => #t
+(channel? m)      ; => #f
 ```
 
 ## C-Level API
@@ -351,7 +425,7 @@ xlDestroyContext(ctx2);
 | `include/xlthread.h` | Thread-safe API declarations |
 | `src/xlcontext.c` | Context creation, destruction, initialization |
 | `src/xlnthread.c` | `thread-create`, `thread-join`, `thread?` |
-| `src/xlsync.c` | Mutexes, condition variables, named registry |
+| `src/xlsync.c` | Mutexes, condition variables, channels, named registry |
 
 ## Limitations
 
@@ -359,7 +433,7 @@ xlDestroyContext(ctx2);
    Each context has its own heap; pointers are not valid across contexts.
 
 2. **String-only communication.** Data crosses thread boundaries as C
-   strings (used by `thread-create` and the named registry).
+   strings (used by `thread-create`, the named registry, and channels).
 
 3. **Memory overhead.** Each context has a full interpreter instance.
    Memory scales linearly with context count.
@@ -386,3 +460,4 @@ xlDestroyContext(ctx2);
 | Thread creation | `pthread_create` | `_beginthreadex` |
 | Mutex | `pthread_mutex_t` | `CRITICAL_SECTION` |
 | Condition variable | `pthread_cond_t` | `CONDITION_VARIABLE` (Vista+) |
+| Channel (internal) | `pthread_mutex_t` + `pthread_cond_t` | `CRITICAL_SECTION` + `CONDITION_VARIABLE` |
