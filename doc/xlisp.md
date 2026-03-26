@@ -69,6 +69,10 @@ full license.
 - [46. Debugging Functions](#46-debugging-functions)
 - [47. System Functions](#47-system-functions)
 - [48. Object Representations](#48-object-representations)
+- [49. Threading Functions](#49-threading-functions)
+- [50. Synchronization Primitives](#50-synchronization-primitives)
+- [51. Message Channels](#51-message-channels)
+- [52. High-Level Threading Utilities](#52-high-level-threading-utilities)
 
 
 
@@ -2836,4 +2840,149 @@ Returns `#t` if *obj* is a live (not yet destroyed) channel handle.
 (thread-join h1)
 (thread-join h2)
 (channel-destroy ch)
+```
+
+# 52. High-Level Threading Utilities
+
+These utilities are defined in `threads.lsp` and provide convenient
+abstractions over the low-level threading primitives.  Load with
+`(load "threads.lsp")`.  Requires a thread-safe build (`make THREADS=1`).
+
+## WITH-MUTEX
+
+```lisp
+(WITH-MUTEX mutex body...)
+```
+
+Macro.  Locks *mutex*, evaluates the *body* forms, unlocks *mutex*, and
+returns the value of the last body form.  The mutex is guaranteed to be
+unlocked even if the body signals an error (via `unwind-protect`).
+
+```lisp
+(define m (mutex-create))
+(with-mutex m
+  (display "critical section")
+  (+ 1 2))   ; => 3, mutex is released
+```
+
+## FUTURE
+
+```lisp
+(FUTURE expr-string [init-file])
+```
+
+Spawns a new thread that evaluates *expr-string* and captures the result.
+Returns a future object.  The optional *init-file* is passed to
+`thread-create` (default `#f`).  The expression should return a string;
+non-string values are converted via `format`.
+
+```lisp
+(define f (future "(number->string (* 6 7))" #f))
+```
+
+## AWAIT
+
+```lisp
+(AWAIT future)
+```
+
+Blocks until the future's thread completes and returns the result string.
+Each future can be awaited exactly once; after `await` the future is
+invalidated.  Signals an error if the future's expression raised an error.
+
+```lisp
+(define f (future "(number->string 42)" #f))
+(await f)   ; => "42"
+```
+
+## FUTURE?
+
+```lisp
+(FUTURE? obj)
+```
+
+Returns `#t` if *obj* is a live (not yet awaited) future.
+
+## PCALL
+
+```lisp
+(PCALL expr-string ...)
+```
+
+Evaluates all *expr-string* arguments concurrently in separate threads and
+returns a list of result strings in the same order.
+
+```lisp
+(pcall "(number->string (* 2 3))"
+       "(number->string (* 4 5))"
+       "(number->string (* 6 7))")
+;; => ("6" "20" "42")
+```
+
+## THREAD-POOL-CREATE
+
+```lisp
+(THREAD-POOL-CREATE n [init-file])
+```
+
+Creates a pool of *n* persistent worker threads.  Returns a pool object.
+The optional *init-file* is passed to each worker's `thread-create`.
+
+```lisp
+(define pool (thread-pool-create 4 #f))
+```
+
+## THREAD-POOL-SUBMIT
+
+```lisp
+(THREAD-POOL-SUBMIT pool expr-string)
+```
+
+Submits *expr-string* for evaluation by an available worker in *pool*.
+Returns a future that can be passed to `await`.
+
+```lisp
+(define f (thread-pool-submit pool "(number->string (+ 1 2))"))
+(await f)   ; => "3"
+```
+
+## THREAD-POOL-DESTROY
+
+```lisp
+(THREAD-POOL-DESTROY pool)
+```
+
+Shuts down the pool: closes the task channel, waits for all workers to
+finish, and cleans up resources.  Returns `#t`.
+
+## THREAD-POOL?
+
+```lisp
+(THREAD-POOL? obj)
+```
+
+Returns `#t` if *obj* is a thread pool.
+
+## PMAP
+
+```lisp
+(PMAP template values [pool])
+```
+
+Applies *template* (a string with a `~a` placeholder) to each element of
+*values* (a list of strings), evaluates the resulting expressions in
+parallel, and returns a list of result strings in order.
+
+If *pool* is provided, tasks are submitted to it; otherwise a new thread
+is spawned per element.
+
+```lisp
+(pmap "(number->string (* 2 ~a))" '("5" "10" "15"))
+;; => ("10" "20" "30")
+
+;; With a pool:
+(define pool (thread-pool-create 4 #f))
+(pmap "(number->string (* 3 ~a))" '("4" "5" "6") pool)
+;; => ("12" "15" "18")
+(thread-pool-destroy pool)
 ```

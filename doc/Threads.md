@@ -416,6 +416,67 @@ xlDestroyContext(ctx1);
 xlDestroyContext(ctx2);
 ```
 
+## High-Level Utilities
+
+The file `threads.lsp` provides convenient abstractions built on the
+low-level primitives.  Load it with `(load "threads.lsp")`.
+
+### with-mutex
+
+Macro that locks a mutex, evaluates body forms, and guarantees unlock
+even on error:
+
+```lisp
+(define m (mutex-create))
+(with-mutex m
+  ;; critical section
+  (+ 1 2))   ; => 3
+```
+
+### future / await
+
+Spawn a computation and retrieve the result later:
+
+```lisp
+(define f (future "(number->string (* 6 7))" #f))
+;; ... do other work ...
+(await f)   ; => "42"
+```
+
+### pcall
+
+Run multiple expressions concurrently, collect results in order:
+
+```lisp
+(pcall "(number->string (* 2 3))"
+       "(number->string (* 4 5))")
+;; => ("6" "20")
+```
+
+### Thread Pool
+
+Reuse a fixed set of worker threads instead of spawning one per task:
+
+```lisp
+(define pool (thread-pool-create 4 #f))
+(define f1 (thread-pool-submit pool "(number->string (fib 30))"))
+(define f2 (thread-pool-submit pool "(number->string (fib 31))"))
+(display (await f1)) (newline)
+(display (await f2)) (newline)
+(thread-pool-destroy pool)
+```
+
+### pmap
+
+Parallel map — apply a template expression to a list of values:
+
+```lisp
+(pmap "(number->string (* 2 ~a))" '("5" "10" "15"))
+;; => ("10" "20" "30")
+```
+
+See `doc/xlisp.md` section 52 for the complete API reference.
+
 ## Implementation Files
 
 | File | Role |
@@ -426,6 +487,7 @@ xlDestroyContext(ctx2);
 | `src/xlcontext.c` | Context creation, destruction, initialization |
 | `src/xlnthread.c` | `thread-create`, `thread-join`, `thread?` |
 | `src/xlsync.c` | Mutexes, condition variables, channels, named registry |
+| `threads.lsp` | High-level utilities (with-mutex, future/await, pcall, thread-pool, pmap) |
 
 ## Limitations
 

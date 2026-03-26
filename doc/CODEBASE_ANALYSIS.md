@@ -114,7 +114,8 @@ When built with `THREADS=1`:
 - **Scheme influences** - lexical scoping, proper tail recursion
 - **Common Lisp elements** - packages, keywords, multiple values
 - **Native threading** - per-thread interpreter contexts with mutexes,
-  condition variables, and message channels for synchronization
+  condition variables, message channels, and high-level utilities
+  (futures, thread pools, parallel map)
 - **Cross-platform** (Windows, Linux, macOS) via ANSI C
 - **Extensible** via C API and extension modules
 - **FASL support** - fast loading of pre-compiled bytecode
