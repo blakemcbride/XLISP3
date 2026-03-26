@@ -21,11 +21,11 @@ It has some really nice features as follows:
 
 ## To all of this, I have added:
 
-A. When used as an extension language, it is now reentrant and can handle multiple simultaneous threads.
-B. Native thread creation and joining from Lisp (`thread-create`, `thread-join`, `thread?`).
-C. Synchronization primitives: mutexes, condition variables, and message channels with cross-thread sharing via named registries.
-D. High-level threading utilities: `with-mutex`, `future`/`await`, `pcall`, thread pools, and `pmap` (`threads.lsp`).
-E. Updated version to 10.0.0.
+- A. When used as an extension language, it is now reentrant and can handle multiple simultaneous threads.
+- B. Native thread creation and joining from Lisp (`thread-create`, `thread-join`, `thread?`).
+- C. Synchronization primitives: mutexes, condition variables, and message channels with cross-thread sharing via named registries.
+- D. High-level threading utilities: `with-mutex`, `future`/`await`, `pcall`, thread pools, and `pmap` (`threads.lsp`).
+- E. Updated version to 10.0.0.
 
 ## Building
 
